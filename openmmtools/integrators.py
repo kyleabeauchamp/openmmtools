@@ -743,7 +743,7 @@ class RampedHMCIntegrator(simtk.openmm.CustomIntegrator):
 
     """
 
-    def __init__(self, temperature=298.0*simtk.unit.kelvin, nsteps=10, timestep=1*simtk.unit.femtoseconds, ramping=0.1):
+    def __init__(self, temperature=298.0*simtk.unit.kelvin, nsteps=10, timestep=1*simtk.unit.femtoseconds, max_boost=0.1):
         """
         Create a hybrid Monte Carlo (HMC) integrator.
 
@@ -833,24 +833,13 @@ class RampedHMCIntegrator(simtk.openmm.CustomIntegrator):
         # Inner symplectic steps using velocity Verlet.
         #
         np = numpy
-        b = lambda n, a: 1 - a * (n - 1) / 2.
-        rho_grid = np.arange(nsteps / 2) * ramping + b(nsteps / 2, ramping)
-        rho_grid /= rho_grid.sum()
-        rho_grid *= nsteps / 2.
-        print(rho_grid)
-        print(2 * rho_grid.sum())
+        raw_grid = lambda n: np.array(range(n / 2) + range(n / 2)[::-1])
+        rho_func = lambda n: 1 - max_boost + raw_grid(n) * 2 * max_boost / (n / 2 - 1.)
+        rho_grid = rho_func(nsteps)
+        print(nsteps, rho_grid.sum())            
         
-        for step in range(nsteps / 2):
+        for step in range(nsteps):
             rho = rho_grid[step]
-            self.addComputePerDof("v", "v+%f*0.5*dt*f/m" % rho)
-            self.addComputePerDof("x", "x+%f*dt*v" % rho)
-            self.addComputePerDof("x1", "x")
-            self.addConstrainPositions()
-            self.addComputePerDof("v", "v+%f*0.5*dt*f/m+(x-x1)/dt/%f" % (rho, rho))
-            self.addConstrainVelocities()
-
-        for step in range(nsteps / 2):
-            rho = rho_grid[::-1][step]
             self.addComputePerDof("v", "v+%f*0.5*dt*f/m" % rho)
             self.addComputePerDof("x", "x+%f*dt*v" % rho)
             self.addComputePerDof("x1", "x")
