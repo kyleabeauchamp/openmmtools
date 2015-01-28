@@ -844,7 +844,7 @@ class RampedHMCIntegrator(simtk.openmm.CustomIntegrator):
             self.addComputePerDof("x", "x+%f*dt*v" % rho)
             self.addComputePerDof("x1", "x")
             self.addConstrainPositions()
-            self.addComputePerDof("v", "v+%f*0.5*dt*f/m+(x-x1)/dt" % rho)
+            self.addComputePerDof("v", "v+%f*0.5*dt*f/m+(x-x1)/dt/rho" % (rho, rho))
             self.addConstrainVelocities()
 
         #
