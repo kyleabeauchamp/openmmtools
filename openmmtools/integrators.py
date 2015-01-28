@@ -833,13 +833,24 @@ class RampedHMCIntegrator(simtk.openmm.CustomIntegrator):
         # Inner symplectic steps using velocity Verlet.
         #
         np = numpy
-        f = lambda alpha, n: np.exp(np.linspace(0, 1, n) * alpha)
-        g = lambda alpha, n: n * f(alpha, n) / f(alpha, n).sum()
-        rho_grid = g(ramping, nsteps)
+        b = lambda n, a: 1 - a * (n - 1) / 2.
+        rho_grid = np.arange(nsteps / 2) * ramping + b(nsteps / 2, ramping)
+        rho_grid /= rho_grid.sum()
+        rho_grid *= nsteps / 2.
+        print(rho_grid)
+        print(2 * rho_grid.sum())
         
-        for step in range(nsteps):
+        for step in range(nsteps / 2):
             rho = rho_grid[step]
-            print(step, rho)
+            self.addComputePerDof("v", "v+%f*0.5*dt*f/m" % rho)
+            self.addComputePerDof("x", "x+%f*dt*v" % rho)
+            self.addComputePerDof("x1", "x")
+            self.addConstrainPositions()
+            self.addComputePerDof("v", "v+%f*0.5*dt*f/m+(x-x1)/dt/%f" % (rho, rho))
+            self.addConstrainVelocities()
+
+        for step in range(nsteps / 2):
+            rho = rho_grid[::-1][step]
             self.addComputePerDof("v", "v+%f*0.5*dt*f/m" % rho)
             self.addComputePerDof("x", "x+%f*dt*v" % rho)
             self.addComputePerDof("x1", "x")
