@@ -835,15 +835,16 @@ class RampedHMCIntegrator(simtk.openmm.CustomIntegrator):
         np = numpy
         f = lambda alpha, n: np.exp(np.linspace(0, 1, n) * alpha)
         g = lambda alpha, n: n * f(alpha, n) / f(alpha, n).sum()
-        alpha_grid = g(ramping, nsteps)
+        rho_grid = g(ramping, nsteps)
         
         for step in range(nsteps):
-            
-            self.addComputePerDof("v", "v+%f*0.5*dt*f/m" % alpha_grid[step])
-            self.addComputePerDof("x", "x+%f*dt*v" % alpha_grid[step])
+            rho = rho_grid[step]
+            print(step, rho)
+            self.addComputePerDof("v", "v+%f*0.5*dt*f/m" % rho)
+            self.addComputePerDof("x", "x+%f*dt*v" % rho)
             self.addComputePerDof("x1", "x")
             self.addConstrainPositions()
-            self.addComputePerDof("v", "v+%f*0.5*dt*f/m+(x-x1)/dt" % alpha_grid[step])
+            self.addComputePerDof("v", "v+%f*0.5*dt*f/m+(x-x1)/dt" % rho)
             self.addConstrainVelocities()
 
         #
