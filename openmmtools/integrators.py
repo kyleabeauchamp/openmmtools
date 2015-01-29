@@ -52,7 +52,7 @@ kB = units.BOLTZMANN_CONSTANT_kB * units.AVOGADRO_CONSTANT_NA
 # INTEGRATORS
 #=============================================================================================
 
-from .hmc_respa import RampedHMCRespaIntegrator, guess_force_groups
+from .hmc_respa import RampedHMCRespaIntegrator, HMCRespaIntegrator, guess_force_groups
 
 from openmmtools import respa
 class MTSIntegrator(respa.MTSIntegrator):
