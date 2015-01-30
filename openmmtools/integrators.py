@@ -52,7 +52,7 @@ kB = units.BOLTZMANN_CONSTANT_kB * units.AVOGADRO_CONSTANT_NA
 # INTEGRATORS
 #=============================================================================================
 
-from .hmc_respa import RampedHMCRespaIntegrator, HMCRespaIntegrator, guess_force_groups
+from .hmc_respa import RampedHMCRespaIntegrator, HMCRespaIntegrator, GHMCIntegrator2, guess_force_groups
 
 from openmmtools import respa
 class MTSIntegrator(respa.MTSIntegrator):
@@ -631,7 +631,7 @@ class GHMCIntegrator(simtk.openmm.CustomIntegrator):
         # Velocity randomization
         #
         self.addComputePerDof("v", "sqrt(b)*v + sqrt(1-b)*sigma*gaussian")
-        self.addConstrainVelocities();
+        self.addConstrainVelocities()
 
         #
         # Accumulate statistics.
