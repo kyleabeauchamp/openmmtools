@@ -569,6 +569,9 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
 
         self.addGlobalVariable("k_max", k_max)  # Maximum number of rounds of dynamics
         self.addGlobalVariable("k", 0)  # Current number of rounds of dynamics
+        self.addGlobalVariable("flip", 0.0)  # Indicator variable whether this iteration was a flip
+        self.addGlobalVariable("mu1", 0.0)  # 
+        
         #
         # Pre-computation.
         # This only needs to be done once, but it needs to be done for each degree of freedom.
@@ -614,12 +617,12 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
         self.addComputeGlobal("Enew", "ke + energy")
         self.addComputeGlobal("rho", "exp(-(Enew-Eold)/kT)")
         self.addComputeGlobal("mu", "min(1, rho)")
-        self.addComputeGlobal("sigma", "max(sigma, mu)")
-        self.addComputeGlobal("accept", "step(sigma - uniform)")
+        self.addComputeGlobal("mu1", "max(mu1, mu)")
+        self.addComputeGlobal("accept", "step(mu1 - uniform)")
         self.addComputePerDof("x", "x*accept + xold*(1 - accept)")
         self.addComputePerDof("v", "v*accept - vold*(1 - accept)")
         
-        self.addComputeGlobal("flip", "(1 - accept) * step(k <= k_max)")  # Flip is True ONLY IF
+        self.addComputeGlobal("flip", "(1 - accept) * step(k - k_max)")  # Flip is True ONLY on rejection at last cycle
         
         self.addComputeGlobal("k", "(k + 1)*(1 - flip)")  # Increment by one ONLY if not flipping momenta, otherwise set to zero
 
