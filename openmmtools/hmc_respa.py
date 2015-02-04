@@ -499,7 +499,7 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
 
     """
 
-    def __init__(self, temperature=298.0*simtk.unit.kelvin, collision_rate=91.0/simtk.unit.picoseconds, timestep=1.0*simtk.unit.femtoseconds, nsteps=10, K=2):
+    def __init__(self, temperature=298.0*simtk.unit.kelvin, collision_rate=91.0/simtk.unit.picoseconds, timestep=1.0*simtk.unit.femtoseconds, nsteps=10, k_max=2):
         """
         Create a generalized hybrid Monte Carlo (GHMC) integrator.
 
@@ -548,7 +548,7 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
         gamma = collision_rate
 
         # Create a new custom integrator.
-        super(GHMCIntegrator2, self).__init__(timestep)
+        super(XHMCIntegrator, self).__init__(timestep)
         print(gamma, timestep, -gamma*timestep)
         #
         # Integrator initialization.
@@ -567,7 +567,8 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
         self.addPerDofVariable("x1", 0) # position before application of constraints
 
 
-        self.addGlobalVariable("K", K)
+        self.addGlobalVariable("k_max", k_max)  # Maximum number of rounds of dynamics
+        self.addGlobalVariable("k", 0)  # Current number of rounds of dynamics
         #
         # Pre-computation.
         # This only needs to be done once, but it needs to be done for each degree of freedom.
@@ -588,7 +589,7 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
         #
         # Velocity perturbation.
         #
-        self.addGlobal("q", 1.0)
+
         # accept is 1 if corrupting velocity e.g. new iteration
         self.addComputePerDof("v", "(accept + flip)* sqrt(b)*v + (accept+flip)*sqrt(1-b)*sigma*gaussian+(2-accept-flip)*v")
         self.addConstrainVelocities();
@@ -614,11 +615,13 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
         self.addComputeGlobal("rho", "exp(-(Enew-Eold)/kT)")
         self.addComputeGlobal("mu", "min(1, rho)")
         self.addComputeGlobal("sigma", "max(sigma, mu)")
-        self.addComputeGlobal("accept", "step(sigma) - uniform)")
-        self.addComputePerDof("x", "x*accept + xold*(1-accept)")
-        self.addComputePerDof("v", "v*accept - vold*(1-accept)")
+        self.addComputeGlobal("accept", "step(sigma - uniform)")
+        self.addComputePerDof("x", "x*accept + xold*(1 - accept)")
+        self.addComputePerDof("v", "v*accept - vold*(1 - accept)")
         
-        self.addComputeGlobal("flip", "accept")
+        self.addComputeGlobal("flip", "(1 - accept) * step(k <= k_max)")  # Flip is True ONLY IF
+        
+        self.addComputeGlobal("k", "(k + 1)*(1 - flip)")  # Increment by one ONLY if not flipping momenta, otherwise set to zero
 
         #
         # Velocity randomization
