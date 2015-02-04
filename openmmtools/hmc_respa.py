@@ -564,12 +564,16 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
         self.addGlobalVariable("accept", 1.0) # accept or reject
         self.addGlobalVariable("naccept", 0) # number accepted
         self.addGlobalVariable("ntrials", 0) # number of Metropolization trials
+        self.addGlobalVariable("nflip", 0) # number of momentum flips (e.g. complete rejections)
         self.addPerDofVariable("x1", 0) # position before application of constraints
 
 
         self.addGlobalVariable("k_max", k_max)  # Maximum number of rounds of dynamics
         self.addGlobalVariable("k", 0)  # Current number of rounds of dynamics
         self.addGlobalVariable("flip", 0.0)  # Indicator variable whether this iteration was a flip
+        
+        self.addGlobalVariable("rho", 0.0)  # 
+        self.addGlobalVariable("mu", 0.0)  # 
         self.addGlobalVariable("mu1", 0.0)  # 
         
         #
@@ -635,6 +639,7 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
         #
         # Accumulate statistics.
         #
+        self.addComputeGlobal("nflip", "nflip + flip")
         self.addComputeGlobal("naccept", "naccept + accept")
         self.addComputeGlobal("ntrials", "ntrials + 1")
 
@@ -647,6 +652,11 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
     def n_trials(self):
         """The total number of attempted HMC moves."""
         return self.getGlobalVariableByName("ntrials")
+
+    @property
+    def n_flip(self):
+        """The total number of momentum flips."""
+        return self.getGlobalVariableByName("nflip")
 
     @property
     def acceptance_rate(self):
