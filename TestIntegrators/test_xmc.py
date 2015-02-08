@@ -8,18 +8,18 @@ n_steps = 5
 temperature = 300. * u.kelvin
 testsystem = testsystems.WaterBox()
 
-timestep = 0.1 * u.femtoseconds
-integrator = integrators.XHMCIntegrator(temperature=temperature, nsteps=n_steps, timestep=timestep, k_max=100)
+timestep = 0.25 * u.femtoseconds
+integrator = integrators.XHMCIntegrator(temperature=temperature, nsteps=n_steps, timestep=timestep, k_max=4)
 context = mm.Context(testsystem.system, integrator)
 context.setPositions(testsystem.positions)
 
 for i in range(10):
     integrator.step(1)
-    print(integrator.n_trials, integrator.n_accept, integrator.n_flip, integrator.acceptance_rate)
     f = lambda key: integrator.getGlobalVariableByName(key)
-    print("rho=%f, mu=%f, mu1=%f, flip=%f" % (f("rho"), f("mu"), f("mu1"), f("flip")))
+    print("*************")
+    print("k=%d uni=%f" % (f("k"), f("uni")))
+    print("Uold=%f Unew=%f Enew=%f Eold=%f Enew-Eold=%f" % (f("Uold"), f("Unew"), f("Enew"), f("Eold"), f("Enew")-f("Eold")))
+    print("rho=%f, mu=%f, mu1old=%f mu1=%f, flip=%d, accept=%d"% (f("rho"), f("mu"), f("mu10"), f("mu1"), f("flip"), f("accept")))
     state = context.getState(getPositions=True, getEnergy=True)
     xyz = state.getPositions(asNumpy=True)
     energy = state.getPotentialEnergy()
-    print(energy)
-    print(xyz)
