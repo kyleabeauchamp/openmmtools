@@ -665,5 +665,5 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
 
     @property
     def acceptance_rate(self):
-        """The acceptance rate: 1 - n_flip / n_trials"""
-        return 1.0 - self.k_max * self.n_flip / float(self.n_trials)
+        """The acceptance rate:"""
+        return 1.0 - (self.k_max + 1) * self.n_flip / float(self.n_trials)
