@@ -499,6 +499,16 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
 
     """
 
+    def add_hmc_loop(self, nsteps):
+        """Propagate nsteps iterations of HMC."""
+        for step in range(nsteps):
+            self.addComputePerDof("v", "v + 0.5*dt*f/m")
+            self.addComputePerDof("x", "x + v*dt")
+            self.addComputePerDof("x1", "x")
+            self.addConstrainPositions()
+            self.addComputePerDof("v", "v + 0.5*dt*f/m + (x-x1)/dt")
+            self.addConstrainVelocities()
+
     def __init__(self, temperature=298.0*simtk.unit.kelvin, collision_rate=91.0/simtk.unit.picoseconds, timestep=1.0*simtk.unit.femtoseconds, nsteps=10, k_max=2):
         """
         Create an X generalized hybrid Monte Carlo (XGHMC) integrator.
@@ -546,6 +556,8 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
         # Initialize constants.
         kT = kB * temperature
         gamma = collision_rate
+        
+        self.k_max = k_max
 
         # Create a new custom integrator.
         super(XHMCIntegrator, self).__init__(timestep)
@@ -561,7 +573,7 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
         self.addPerDofVariable("xold", 0) # old positions
         self.addGlobalVariable("Eold", 0) # old energy
         self.addGlobalVariable("Enew", 0) # new energy
-        self.addGlobalVariable("accept", 1.0) # accept or reject
+        self.addGlobalVariable("a", 1.0) # accept or reject
         self.addGlobalVariable("naccept", 0) # number accepted
         self.addGlobalVariable("ntrials", 0) # number of Metropolization trials
         self.addGlobalVariable("nflip", 0) # number of momentum flips (e.g. complete rejections)
@@ -570,7 +582,8 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
 
         self.addGlobalVariable("k_max", k_max)  # Maximum number of rounds of dynamics
         self.addGlobalVariable("k", 0)  # Current number of rounds of dynamics
-        self.addGlobalVariable("flip", 0.0)  # Indicator variable whether this iteration was a flip
+        self.addGlobalVariable("kold", 0)  # Previous value of k stored for debugging purposes
+        self.addGlobalVariable("f", 0.0)  # Indicator variable whether this iteration was a flip
         
         self.addGlobalVariable("rho", 0.0)  # temporary variables for acceptance criterion
         self.addGlobalVariable("mu", 0.0)  # 
@@ -580,19 +593,18 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
         self.addGlobalVariable("Unew", 0.0)
         self.addGlobalVariable("uni", 0.0)  # Uniform random variable generated once per round of XHMC
 
-        self.addComputeGlobal("first", "step(-k)")
+        self.addComputePerDof("sigma", "sqrt(kT/m)")        
+        
+        self.add_computations(nsteps)
+        
+    def add_computations(self, nsteps):
 
-        #
-        # Pre-computation.
-        # This only needs to be done once, but it needs to be done for each degree of freedom.
-        # Could move this to initialization?
-        #
-        self.addComputePerDof("sigma", "sqrt(kT/m)")
-
+        self.addComputeGlobal("s", "step(-k)")  # True only on first step of XHMC round
+        self.addComputeGlobal("l", "step(k - k_max)")  # True only only last step of XHMC round
         #
         # Allow context updating here.
         #
-        self.addUpdateContextState();
+        self.addUpdateContextState()
 
         #
         # Constrain positions.
@@ -601,61 +613,39 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
 
         #
         # Velocity perturbation.
-        #
-
-        # accept is 1 if corrupting velocity e.g. new iteration
-        self.addComputePerDof("v", "(accept + flip)* sqrt(b)*v + (accept+flip)*sqrt(1-b)*sigma*gaussian+(1-accept)*(1-flip)*v")
+        self.addComputePerDof("v", "s * (sqrt(b) * v + (1 - s) * sqrt(1 - b) * sigma * gaussian) + (1 - s) * v")
         self.addConstrainVelocities()
 
-        #
-        # Metropolized symplectic step.
-        #
         self.addComputeSum("ke", "0.5*m*v*v")
-        self.addComputeGlobal("Eold", "Eold  * (1 - first) + (ke + energy) * first")
-        self.addComputeGlobal("Uold", "Uold * (1 - first) + energy * first")
-        self.addComputePerDof("xold", "first * x + (1 - first) * xold")
-        self.addComputePerDof("vold", "first * v + (1 - first) * vold")
+        self.addComputeGlobal("Eold", "s * (ke + energy) + (1 - s) * Eold")
+        self.addComputePerDof("xold", "s * x + (1 - s) * xold")
+        self.addComputePerDof("vold", "s * v + (1 - s) * vold")
         
-        self.addComputeGlobal("mu1", "mu1 * (1 - first)")
+        self.addComputeGlobal("mu1", "mu1 * (1 - s)")
+        self.addComputeGlobal("uni", "(1 - s) * uni + uniform * s")
 
-
-        for step in range(nsteps):
-            self.addComputePerDof("v", "v + 0.5*dt*f/m")
-            self.addComputePerDof("x", "x + v*dt")
-            self.addComputePerDof("x1", "x")
-            self.addConstrainPositions()
-            self.addComputePerDof("v", "v + 0.5*dt*f/m + (x-x1)/dt")
-            self.addConstrainVelocities()
+        self.add_hmc_loop(nsteps)
 
         self.addComputeSum("ke", "0.5*m*v*v")
+
         self.addComputeGlobal("Enew", "ke + energy")
         self.addComputeGlobal("Unew", "energy")
-        self.addComputeGlobal("rho", "exp(-(Enew-Eold)/kT)")
-        self.addComputeGlobal("mu", "min(1, rho)")
-        self.addComputeGlobal("mu10", "mu1")
+        self.addComputeGlobal("r", "exp(-(Enew - Eold) / kT)")
+        self.addComputeGlobal("mu", "min(1, r)")
         self.addComputeGlobal("mu1", "max(mu1, mu)")
-        self.addComputeGlobal("uni", "(1 - first) * uni + uniform * first")
-        self.addComputeGlobal("accept", "step(mu1 - uni)")
-        self.addComputePerDof("x", "x * accept + xold * (1 - accept)")
-        self.addComputePerDof("v", "v * accept - vold * (1 - accept)")
+        self.addComputeGlobal("a", "step(mu1 - uni)")
+        self.addComputePerDof("x", "x * a + xold * (1 - a)")
+        self.addComputePerDof("v", "v * a - vold * (1 - a)")
         
-        self.addComputeGlobal("last", "step(k_max - 1)")  # True if we are on the last step
-        self.addComputeGlobal("flip", "(1 - accept) * last")  # Flip is True ONLY on rejection at last cycle
+        self.addComputeGlobal("f", "(1 - a) * l")  # Flip is True ONLY on rejection at last cycle
         
-        self.addComputeGlobal("k", "(k + 1)*(1 - flip) * (1 - accept)")  # Increment by one ONLY if not flipping momenta or accepting, otherwise set to zero
+        self.addComputeGlobal("kold", "k")  # Store the previous value of k for debugging purposes
+        self.addComputeGlobal("k", "(k + 1) * (1 - f) * (1 - a)")  # Increment by one ONLY if not flipping momenta or accepting, otherwise set to zero
 
-        
-        #
-        # Velocity randomization
-        #
-        self.addComputePerDof("v", "sqrt(b)*v + sqrt(1-b)*sigma*gaussian")
-        self.addConstrainVelocities()
-
-        #
         # Accumulate statistics.
         #
-        self.addComputeGlobal("nflip", "nflip + flip")
-        self.addComputeGlobal("naccept", "naccept + accept")
+        self.addComputeGlobal("nflip", "nflip + f")
+        self.addComputeGlobal("naccept", "naccept + a")
         self.addComputeGlobal("ntrials", "ntrials + 1")
 
     @property
@@ -675,5 +665,5 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
 
     @property
     def acceptance_rate(self):
-        """The acceptance rate: n_accept  / n_trials."""
-        return self.n_accept / float(self.n_trials)
+        """The acceptance rate: 1 - n_flip / n_trials"""
+        return 1.0 - self.k_max * self.n_flip / float(self.n_trials)
