@@ -52,7 +52,9 @@ kB = units.BOLTZMANN_CONSTANT_kB * units.AVOGADRO_CONSTANT_NA
 # INTEGRATORS
 #=============================================================================================
 
-from .hmc_respa import RampedHMCRespaIntegrator, HMCRespaIntegrator, GHMCIntegrator2, guess_force_groups, XHMCIntegrator
+#from .hmc_respa import RampedHMCRespaIntegrator, HMCRespaIntegrator, GHMCIntegrator2, guess_force_groups, XHMCIntegrator
+
+from ._integrators import GHMCIntegrator, XHMCIntegrator
 
 from openmmtools import respa
 class MTSIntegrator(respa.MTSIntegrator):
@@ -514,7 +516,7 @@ class HMCIntegrator(simtk.openmm.CustomIntegrator):
         return self.n_accept / float(self.n_trials)
 
 
-class GHMCIntegrator(simtk.openmm.CustomIntegrator):
+class OldGHMCIntegrator(simtk.openmm.CustomIntegrator):
     """
     Generalized hybrid Monte Carlo (GHMC) integrator.
 
