@@ -353,7 +353,7 @@ class GHMCIntegrator2(simtk.openmm.CustomIntegrator):
 
     """
 
-    def __init__(self, temperature=298.0*simtk.unit.kelvin, collision_rate=91.0/simtk.unit.picoseconds, timestep=1.0*simtk.unit.femtoseconds, nsteps=10):
+    def __init__(self, temperature=298.0*simtk.unit.kelvin, collision_rate=91.0/simtk.unit.picoseconds, timestep=1.0*simtk.unit.femtoseconds, steps_per_hmc=10):
         """
         Create a generalized hybrid Monte Carlo (GHMC) integrator.
 
@@ -451,7 +451,7 @@ class GHMCIntegrator2(simtk.openmm.CustomIntegrator):
         self.addComputePerDof("xold", "x")
         self.addComputePerDof("vold", "v")
         
-        for step in range(nsteps):
+        for step in range(steps_per_hmc):
             self.addComputePerDof("v", "v + 0.5*dt*f/m")
             self.addComputePerDof("x", "x + v*dt")
             self.addComputePerDof("x1", "x")
@@ -509,7 +509,7 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
             self.addComputePerDof("v", "v + 0.5*dt*f/m + (x-x1)/dt")
             self.addConstrainVelocities()
 
-    def __init__(self, temperature=298.0*simtk.unit.kelvin, collision_rate=91.0/simtk.unit.picoseconds, timestep=1.0*simtk.unit.femtoseconds, nsteps=10, k_max=2):
+    def __init__(self, temperature=298.0*simtk.unit.kelvin, collision_rate=91.0/simtk.unit.picoseconds, timestep=1.0*simtk.unit.femtoseconds, steps_per_hmc=10, k_max=2):
         """
         Create an X generalized hybrid Monte Carlo (XGHMC) integrator.
 
@@ -595,7 +595,7 @@ class XHMCIntegrator(simtk.openmm.CustomIntegrator):
 
         self.addComputePerDof("sigma", "sqrt(kT/m)")        
         
-        self.add_computations(nsteps)
+        self.add_computations(steps_per_hmc)
         
     def add_computations(self, nsteps):
 

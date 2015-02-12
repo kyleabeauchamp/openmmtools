@@ -4,13 +4,14 @@ import simtk.openmm as mm
 from simtk import unit as u
 from openmmtools import integrators, testsystems
 
+k_max = 0
 steps_per_hmc = 5
 temperature = 300. * u.kelvin
 testsystem = testsystems.WaterBox()
 timestep = 0.3 * u.femtoseconds
-n_steps = 50
+n_steps = 200
 
-integrator0 = integrators.XHMCIntegrator(temperature=temperature, steps_per_hmc=steps_per_hmc, timestep=timestep, k_max=0)
+integrator0 = integrators.XHMCIntegrator(temperature=temperature, steps_per_hmc=steps_per_hmc, timestep=timestep, k_max=k_max)
 context = mm.Context(testsystem.system, integrator0)
 context.setPositions(testsystem.positions)
 context.setVelocitiesToTemperature(temperature)

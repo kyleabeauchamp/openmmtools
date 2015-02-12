@@ -80,6 +80,7 @@ class XHMCIntegrator(GHMCIntegrator):
         self.add_computations()
         
     def add_computations(self):
+        print("XHMC add computations.")
 
         self.addComputeGlobal("s", "step(-k)")  # True only on first step of XHMC round
         self.addComputeGlobal("l", "step(k - k_max)")  # True only only last step of XHMC round

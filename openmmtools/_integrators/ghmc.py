@@ -83,6 +83,7 @@ class GHMCIntegrator(simtk.openmm.CustomIntegrator):
         self.add_computations()
 
     def add_computations(self):
+        print("GHMC add_computations.""")
         #
         # Pre-computation.
         # This only needs to be done once, but it needs to be done for each degree of freedom.
@@ -135,6 +136,7 @@ class GHMCIntegrator(simtk.openmm.CustomIntegrator):
         self.addComputeGlobal("ntrials", "ntrials + 1")
 
     def add_hmc_loop(self):
+        """Add self.steps_per_hmc steps of velocity verlet dynamics to the integration loop."""
         for step in range(self.steps_per_hmc):
             self.addComputePerDof("v", "v + 0.5*dt*f/m")
             self.addComputePerDof("x", "x + v*dt")
