@@ -17,66 +17,55 @@ kB = units.BOLTZMANN_CONSTANT_kB * units.AVOGADRO_CONSTANT_NA
 
 
 class RampedHMCIntegrator(mm.CustomIntegrator):
-    """
-    Hybrid Monte Carlo (HMC) integrator.
-
+    """Hybrid Monte Carlo (HMC) integrator with linearly ramped non-uniform timesteps.
     """
 
-    def __init__(self, temperature=298.0*simtk.unit.kelvin, nsteps=10, timestep=1*simtk.unit.femtoseconds, collision_rate=91.0/simtk.unit.picoseconds, max_boost=0.1):
-        """
-        Create a hybrid Monte Carlo (HMC) integrator.
+    def __init__(self, temperature=298.0*simtk.unit.kelvin, steps_per_hmc=10, timestep=1*simtk.unit.femtoseconds, collision_rate=91.0/simtk.unit.picoseconds, max_boost=0.0):
+        """Create a hybrid Monte Carlo (HMC) integrator with linearly ramped non-uniform timesteps.
 
         Parameters
         ----------
         temperature : numpy.unit.Quantity compatible with kelvin, default: 298*simtk.unit.kelvin
            The temperature.
-        nsteps : int, default: 10
-           The number of velocity Verlet steps to take per HMC trial.
+        steps_per_hmc : int, default: 10
+           The number of velocity Verlet steps to take per round of hamiltonian dynamics
+           This must be an even number!
         timestep : numpy.unit.Quantity compatible with femtoseconds, default: 1*simtk.unit.femtoseconds
-           The integration timestep.
-
-        Warning
-        -------
-        Because 'nsteps' sets the number of steps taken, a call to integrator.step(1) actually takes 'nsteps' steps.
-
-        Notes
-        -----
-        The velocity is drawn from a Maxwell-Boltzmann distribution, then 'nsteps' steps are taken,
-        and the new configuration is either accepted or rejected.
-
-        Additional global variables 'ntrials' and  'naccept' keep track of how many trials have been attempted and
-        accepted, respectively.
-
-        TODO
-        ----
-        Currently, the simulation timestep is only advanced by 'timestep' each step, rather than timestep*nsteps.  Fix this.
-
-        Examples
-        --------
-
-        Create an HMC integrator.
-
-        >>> timestep = 1.0 * simtk.unit.femtoseconds # fictitious timestep
-        >>> temperature = 298.0 * simtk.unit.kelvin
-        >>> nsteps = 10 # number of steps per call
-        >>> integrator = HMCIntegrator(temperature, nsteps, timestep)
-
+           The integration timestep.  The total time taken per iteration
+           will equal timestep * steps_per_hmc
+        collision_rate : numpy.unit.Quantity compatible with 1 / femtoseconds, default: 91 / picoseconds
+           The collision rate for the langevin velocity corruption.
+        max_boost : float, default=0.0
+            Control parameter for linearly ramping of timestep.
         """
 
         super(RampedHMCIntegrator, self).__init__(timestep)
         
-        self.steps_per_hmc = nsteps
+        self.steps_per_hmc = steps_per_hmc
+
+        if steps_per_hmc % 2 != 0:
+            raise(ValueError("steps_per_hmc must be an even number!"))
 
         # Compute the thermal energy.
-        kT = kB * temperature
+        self.kT = kB * temperature
+        self.collision_rate = collision_rate
+        self.timestep = timestep
+        self.max_boost = max_boost
+        
 
-        #
-        # Integrator initialization.
-        #
+        self.initialize_variables()
+        self.add_draw_velocities_step()
+        self.add_cache_variables_step()
+        self.add_hmc_iterations()
+        self.add_accept_or_reject_step()
+        self.add_accumulate_statistics_step()
+
+
+    def initialize_variables(self):
         self.addGlobalVariable("naccept", 0) # number accepted
         self.addGlobalVariable("ntrials", 0) # number of Metropolization trials
 
-        self.addGlobalVariable("kT", kT) # thermal energy
+        self.addGlobalVariable("kT", self.kT) # thermal energy
         self.addPerDofVariable("sigma", 0)
         self.addGlobalVariable("ke", 0) # kinetic energy
         self.addPerDofVariable("xold", 0) # old positions
@@ -84,63 +73,52 @@ class RampedHMCIntegrator(mm.CustomIntegrator):
         self.addGlobalVariable("Enew", 0) # new energy
         self.addGlobalVariable("accept", 0) # accept or reject
         self.addPerDofVariable("x1", 0) # for constraints
-        self.addGlobalVariable("b", np.exp(-collision_rate * timestep)) # velocity mixing parameter        
+        self.addGlobalVariable("b", np.exp(-self.collision_rate * self.timestep)) # velocity mixing parameter        
 
-        #
-        # Pre-computation.
-        # This only needs to be done once, but it needs to be done for each degree of freedom.
-        # Could move this to initialization?
-        #
+
+        self.build_timestep_ramp()
+
         self.addComputePerDof("sigma", "sqrt(kT/m)")
+        self.addUpdateContextState()
 
-        #
-        # Allow Context updating here, outside of inner loop only.
-        #
-        self.addUpdateContextState();
-
-        #
-        # Draw new velocity.
-        #
+    def add_draw_velocities_step(self):
+        """Draw perturbed velocities."""
         self.addComputePerDof("v", "sqrt(b)*v + sqrt(1-b)*sigma*gaussian")
         self.addComputePerDof("v", "sigma*gaussian")
         self.addConstrainVelocities();
 
-        #
-        # Store old position and energy.
-        #
+    def add_cache_variables_step(self):
+        """Store old positions and energies."""
         self.addComputeSum("ke", "0.5*m*v*v")
         self.addComputeGlobal("Eold", "ke + energy")
         self.addComputePerDof("xold", "x")
 
-        #
-        # Inner symplectic steps using velocity Verlet.
-        #
-        raw_grid = lambda n: np.array(range(n / 2) + range(n / 2)[::-1])
-        rho_func = lambda n: 1 - max_boost + raw_grid(n) * 2 * max_boost / (n / 2 - 1.)
-        rho_grid = rho_func(nsteps)
-        print(nsteps, rho_grid.sum())            
 
-        self.add_hmc_iterations(rho_grid)
+    def add_accumulate_statistics_step(self):
+        self.addComputeGlobal("naccept", "naccept + accept")
+        self.addComputeGlobal("ntrials", "ntrials + 1")
 
-        #
-        # Accept/reject step.
-        #
+
+    def add_accept_or_reject_step(self):
         self.addComputeSum("ke", "0.5*m*v*v")
         self.addComputeGlobal("Enew", "ke + energy")
         self.addComputeGlobal("accept", "step(exp(-(Enew-Eold)/kT) - uniform)")
         self.addComputePerDof("x", "x*accept + xold*(1-accept)")
 
-        #
-        # Accumulate statistics.
-        #
-        self.addComputeGlobal("naccept", "naccept + accept")
-        self.addComputeGlobal("ntrials", "ntrials + 1")
 
+    def build_timestep_ramp(self):
+        """Construct a linearly ramped grid of timesteps that satisfies detailed balance."""
+        raw_grid = lambda n: np.array(range(n / 2) + range(n / 2)[::-1])
+        rho_func = lambda n: 1 - self.max_boost + raw_grid(n) * 2 * self.max_boost / (n / 2 - 1.)
+        
+        self.rho_grid = rho_func(self.steps_per_hmc)
+        
+        print(self.steps_per_hmc, self.rho_grid.sum())
 
-    def add_hmc_iterations(self, rho_grid):
-        """Add self.n_steps iterations of hamiltonian dynamics, with ramping step sizes."""
+    def add_hmc_iterations(self):
+        """Add self.steps_per_hmc iterations of symplectic hamiltonian dynamics, with ramping step sizes."""
         for step in range(self.steps_per_hmc):
-            rho = rho_grid[step]
+            rho = self.rho_grid[step]
             self.addComputePerDof("v", "v+%f*0.5*dt*f/m" % rho)
             self.addComputePerDof("x", "x+%f*dt*v" % rho)
             self.addComputePerDof("x1", "x")
