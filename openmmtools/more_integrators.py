@@ -74,6 +74,7 @@ class GHMC2(mm.CustomIntegrator):
         self.addPerDofVariable("sigma", 0)
         self.addGlobalVariable("ke", 0) # kinetic energy
         self.addPerDofVariable("xold", 0) # old positions
+        self.addPerDofVariable("vold", 0) # old velocities
         self.addGlobalVariable("Eold", 0) # old energy
         self.addGlobalVariable("Enew", 0) # new energy
         self.addGlobalVariable("accept", 0) # accept or reject
@@ -86,7 +87,6 @@ class GHMC2(mm.CustomIntegrator):
     def add_draw_velocities_step(self):
         """Draw perturbed velocities."""
         self.addComputePerDof("v", "sqrt(b)*v + sqrt(1-b)*sigma*gaussian")
-        self.addComputePerDof("v", "sigma*gaussian")
         self.addConstrainVelocities();
 
     def add_cache_variables_step(self):
@@ -106,7 +106,7 @@ class GHMC2(mm.CustomIntegrator):
         self.addComputeGlobal("Enew", "ke + energy")
         self.addComputeGlobal("accept", "step(exp(-(Enew-Eold)/kT) - uniform)")
         self.addComputePerDof("x", "x*accept + xold*(1-accept)")
-
+        self.addComputePerDof("v", "v*accept - vold*(1-accept)")
 
     def build_timestep_ramp(self):
         """Construct a linearly ramped grid of timesteps that satisfies detailed balance."""
