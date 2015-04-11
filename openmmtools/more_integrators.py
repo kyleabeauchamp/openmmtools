@@ -94,6 +94,7 @@ class GHMC2(mm.CustomIntegrator):
         self.addComputeSum("ke", "0.5*m*v*v")
         self.addComputeGlobal("Eold", "ke + energy")
         self.addComputePerDof("xold", "x")
+        self.addComputePerDof("vold", "v")        
 
 
     def add_accumulate_statistics_step(self):
@@ -106,7 +107,7 @@ class GHMC2(mm.CustomIntegrator):
         self.addComputeGlobal("Enew", "ke + energy")
         self.addComputeGlobal("accept", "step(exp(-(Enew-Eold)/kT) - uniform)")
         self.addComputePerDof("x", "x*accept + xold*(1-accept)")
-        self.addComputePerDof("v", "v*accept - vold*(1-accept)")
+        self.addComputePerDof("v", "v*accept - vold*(1-accept)")  # Notice the minus sign: momentum flip
 
     def build_timestep_ramp(self):
         """Construct a linearly ramped grid of timesteps that satisfies detailed balance."""
