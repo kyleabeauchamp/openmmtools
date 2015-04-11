@@ -109,13 +109,13 @@ class GHMC2(mm.CustomIntegrator):
 
     def add_hmc_iterations(self):
         """Add self.steps_per_hmc iterations of symplectic hamiltonian dynamics, with ramping step sizes."""
+        print("Adding GHMC2 steps.")
         for step in range(self.steps_per_hmc):
-            rho = self.rho_grid[step]
-            self.addComputePerDof("v", "v+%f*0.5*dt*f/m" % rho)
-            self.addComputePerDof("x", "x+%f*dt*v" % rho)
+            self.addComputePerDof("v", "v+0.5*dt*f/m")
+            self.addComputePerDof("x", "x+dt*v")
             self.addComputePerDof("x1", "x")
             self.addConstrainPositions()
-            self.addComputePerDof("v", "v+%f*0.5*dt*f/m+(x-x1)/dt/%f" % (rho, rho))
+            self.addComputePerDof("v", "v+0.5*dt*f/m+(x-x1)/dt")
             self.addConstrainVelocities()
 
     @property
@@ -184,6 +184,7 @@ class RampedHMCIntegrator(GHMC2):
 
     def add_hmc_iterations(self):
         """Add self.steps_per_hmc iterations of symplectic hamiltonian dynamics, with ramping step sizes."""
+        print("Adding ramped HMC steps.")
         for step in range(self.steps_per_hmc):
             rho = self.rho_grid[step]
             self.addComputePerDof("v", "v+%f*0.5*dt*f/m" % rho)
