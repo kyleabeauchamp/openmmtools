@@ -52,6 +52,7 @@ kB = units.BOLTZMANN_CONSTANT_kB * units.AVOGADRO_CONSTANT_NA
 # INTEGRATORS
 #=============================================================================================
 
+from .more_integrators import *
 from openmmtools import respa
 class MTSIntegrator(respa.MTSIntegrator):
     """
