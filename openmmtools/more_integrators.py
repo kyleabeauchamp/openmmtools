@@ -42,10 +42,20 @@ class GHMC2(mm.CustomIntegrator):
         self.steps_per_hmc = steps_per_hmc
 
         # Compute the thermal energy.
-        self.kT = kB * temperature
-        self.collision_rate = collision_rate
+        self.temperature = temperature
+        self.collision_rate = collision_rate        
         self.timestep = timestep
         self.create()
+
+    @property
+    def kT(self):
+        """The thermal energy."""
+        return kB * self.temperature
+
+    @property
+    def b(self):
+        """The scaling factor for preserving versus randomizing velocities."""
+        return np.exp(-self.collision_rate * self.timestep)
 
     def create(self):
         self.initialize_variables()
@@ -68,7 +78,7 @@ class GHMC2(mm.CustomIntegrator):
         self.addGlobalVariable("Enew", 0) # new energy
         self.addGlobalVariable("accept", 0) # accept or reject
         self.addPerDofVariable("x1", 0) # for constraints
-        self.addGlobalVariable("b", np.exp(-self.collision_rate * self.timestep)) # velocity mixing parameter                
+        self.addGlobalVariable("b", self.b) # velocity mixing parameter                
 
         self.addComputePerDof("sigma", "sqrt(kT/m)")
         self.addUpdateContextState()
@@ -164,10 +174,10 @@ class RampedHMCIntegrator(GHMC2):
         
         self.steps_per_hmc = steps_per_hmc
 
-        # Compute the thermal energy.
-        self.kT = kB * temperature
         self.collision_rate = collision_rate
         self.timestep = timestep
+        self.temperature = temperature
+
         self.max_boost = max_boost
         self.build_timestep_ramp()
         
