@@ -7,19 +7,28 @@ from openmmtools import integrators, testsystems
 collision_rate = 1.0 / u.picoseconds
 n_steps = 500
 temperature = 300. * u.kelvin
-testsystem = testsystems.WaterBox(box_edge=3.18 * u.nanometers)  # Around 1060 molecules of water
 
+testsystem = testsystems.WaterBox(box_edge=3.18 * u.nanometers)  # Around 1060 molecules of water
+system = testsystem.system
+
+integrator = mm.LangevinIntegrator(temperature, 1.0 / u.picoseconds, 0.25 * u.femtoseconds)
+context = mm.Context(testsystem.system, integrator)
+context.setPositions(testsystem.positions)
+context.setVelocitiesToTemperature(temperature)
+integrator.step(5000)
+positions = context.getState(getPositions=True).getPositions()
 
 def test_hmc(timestep, steps_per_hmc, alpha):
     timestep = timestep * u.femtoseconds
     integrator = integrators.RampedHMCIntegrator(temperature, steps_per_hmc, timestep, max_boost=alpha)
-    context = mm.Context(testsystem.system, integrator)
-    context.setPositions(testsystem.positions)
-    integrator.step(n_steps)    
+    context = mm.Context(system, integrator)
+    context.setPositions(positions)
+    context.setVelocitiesToTemperature(temperature)
+    integrator.step(n_steps)
     return integrator.acceptance_rate
 
 #timestep_list = np.array([1.0, 1.5])
-timestep_list = np.linspace(1.5, 2.5, 5)
+timestep_list = np.linspace(1.5, 2.25, 4)
 alpha_list = np.array([0.0, 0.1, 0.2])
 steps_per_hmc = 26
 data = []

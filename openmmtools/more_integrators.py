@@ -47,16 +47,6 @@ class GHMC2(mm.CustomIntegrator):
         self.timestep = timestep
         self.create()
 
-    @property
-    def kT(self):
-        """The thermal energy."""
-        return kB * self.temperature
-
-    @property
-    def b(self):
-        """The scaling factor for preserving versus randomizing velocities."""
-        return np.exp(-self.collision_rate * self.timestep)
-
     def create(self):
         self.initialize_variables()
         self.add_draw_velocities_step()
@@ -64,7 +54,6 @@ class GHMC2(mm.CustomIntegrator):
         self.add_hmc_iterations()
         self.add_accept_or_reject_step()
         self.add_accumulate_statistics_step()
-
 
     def initialize_variables(self):
         self.addGlobalVariable("naccept", 0) # number accepted
@@ -109,17 +98,8 @@ class GHMC2(mm.CustomIntegrator):
         self.addComputePerDof("x", "x*accept + xold*(1-accept)")
         self.addComputePerDof("v", "v*accept - vold*(1-accept)")  # Notice the minus sign: momentum flip
 
-    def build_timestep_ramp(self):
-        """Construct a linearly ramped grid of timesteps that satisfies detailed balance."""
-        raw_grid = lambda n: np.array(range(n / 2) + range(n / 2)[::-1])
-        rho_func = lambda n: 1 - self.max_boost + raw_grid(n) * 2 * self.max_boost / (n / 2 - 1.)
-        
-        self.rho_grid = rho_func(self.steps_per_hmc)
-        
-        print(self.steps_per_hmc, self.rho_grid.sum())
-
     def add_hmc_iterations(self):
-        """Add self.steps_per_hmc iterations of symplectic hamiltonian dynamics, with ramping step sizes."""
+        """Add self.steps_per_hmc iterations of symplectic hamiltonian dynamics."""
         print("Adding GHMC2 steps.")
         for step in range(self.steps_per_hmc):
             self.addComputePerDof("v", "v+0.5*dt*f/m")
@@ -128,6 +108,16 @@ class GHMC2(mm.CustomIntegrator):
             self.addConstrainPositions()
             self.addComputePerDof("v", "v+0.5*dt*f/m+(x-x1)/dt")
             self.addConstrainVelocities()
+
+    @property
+    def kT(self):
+        """The thermal energy."""
+        return kB * self.temperature
+
+    @property
+    def b(self):
+        """The scaling factor for preserving versus randomizing velocities."""
+        return np.exp(-self.collision_rate * self.timestep)
 
     @property
     def n_accept(self):
@@ -143,6 +133,11 @@ class GHMC2(mm.CustomIntegrator):
     def acceptance_rate(self):
         """The acceptance rate: n_accept  / n_trials."""
         return self.n_accept / float(self.n_trials)
+
+    @property
+    def effective_timestep(self):
+        """The acceptance rate times the timestep."""
+        return self.acceptance_rate * self.timestep
 
 
 class RampedHMCIntegrator(GHMC2):
@@ -205,3 +200,49 @@ class RampedHMCIntegrator(GHMC2):
             self.addComputePerDof("v", "v+%f*0.5*dt*f/m+(x-x1)/dt/%f" % (rho, rho))
             self.addConstrainVelocities()
 
+
+
+class RandomTimestepGHMC(GHMC2):
+    """Generalized hybrid Monte Carlo (GHMC) integrator.
+    """
+
+    def __init__(self, temperature=298.0*simtk.unit.kelvin, steps_per_hmc=10, timestep=1*simtk.unit.femtoseconds, collision_rate=91.0/simtk.unit.picoseconds):
+        """Create a generalized hybrid Monte Carlo (GHMC) integrator.
+
+        Parameters
+        ----------
+        temperature : numpy.unit.Quantity compatible with kelvin, default: 298*simtk.unit.kelvin
+           The temperature.
+        steps_per_hmc : int, default: 10
+           The number of velocity Verlet steps to take per round of hamiltonian dynamics
+           This must be an even number!
+        timestep : numpy.unit.Quantity compatible with femtoseconds, default: 1*simtk.unit.femtoseconds
+           The integration timestep.  The total time taken per iteration
+           will equal timestep * steps_per_hmc
+        collision_rate : numpy.unit.Quantity compatible with 1 / femtoseconds, default: 91 / picoseconds
+           The collision rate for the langevin velocity corruption.
+        """
+
+        mm.CustomIntegrator.__init__(self, timestep)
+        
+        self.steps_per_hmc = steps_per_hmc
+        
+        self.addGlobalVariable("scale_factor", 2.0) # thermal energy
+
+        # Compute the thermal energy.
+        self.temperature = temperature
+        self.collision_rate = collision_rate        
+        self.timestep = timestep
+        self.create()
+
+    def add_hmc_iterations(self):
+        """Add self.steps_per_hmc iterations of symplectic hamiltonian dynamics."""
+        print("Adding GHMC2 steps.")
+        self.addComputeGlobal("scale_factor", "2.0 * uniform")        
+        for step in range(self.steps_per_hmc):
+            self.addComputePerDof("v", "v+0.5*dt*f/m * scale_factor")
+            self.addComputePerDof("x", "x+dt*v * scale_factor")
+            self.addComputePerDof("x1", "x")
+            self.addConstrainPositions()
+            self.addComputePerDof("v", "v+0.5*dt*f/m * scale_factor+(x-x1)/(dt * scale_factor)")
+            self.addConstrainVelocities()
