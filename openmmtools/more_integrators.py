@@ -267,6 +267,7 @@ class XHMCIntegrator(GHMC2):
         self.addGlobalVariable("a", 1.0) # accept or reject
         self.addGlobalVariable("s", 0.0)
         self.addGlobalVariable("l", 0.0)
+        self.addGlobalVariable("r", 0.0) # accept or reject
 
         self.addGlobalVariable("k_max", self.k_max)  # Maximum number of rounds of dynamics
         self.addGlobalVariable("k", 0)  # Current number of rounds of dynamics
