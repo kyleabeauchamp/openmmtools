@@ -15,6 +15,13 @@ kB = units.BOLTZMANN_CONSTANT_kB * units.AVOGADRO_CONSTANT_NA
 # INTEGRATORS
 #=============================================================================================
 
+def guess_force_groups(system):
+    """Set NB short-range to 1 and long-range to 2, which is usually OK."""
+    for force in system.getForces():
+        if isinstance(force, mm.openmm.NonbondedForce):
+            force.setForceGroup(1)
+            force.setReciprocalSpaceForceGroup(2)
+
 
 class GHMC2(mm.CustomIntegrator):
     """Generalized hybrid Monte Carlo (GHMC) integrator.
@@ -393,3 +400,86 @@ class XHMCIntegrator(GHMC2):
         return d
 
 
+
+
+
+
+class GHMCRESPA(GHMC2):
+    """Hybrid Monte Carlo (HMC) integrator with linearly ramped non-uniform timesteps.
+    """
+
+    def __init__(self, temperature=298.0*simtk.unit.kelvin, steps_per_hmc=10, timestep=1*simtk.unit.femtoseconds, collision_rate=91.0/simtk.unit.picoseconds, groups=None):
+        """Create a hybrid Monte Carlo (HMC) integrator with linearly ramped non-uniform timesteps.
+
+        Parameters
+        ----------
+        temperature : numpy.unit.Quantity compatible with kelvin, default: 298*simtk.unit.kelvin
+           The temperature.
+        steps_per_hmc : int, default: 10
+           The number of velocity Verlet steps to take per round of hamiltonian dynamics
+           This must be an even number!
+        timestep : numpy.unit.Quantity compatible with femtoseconds, default: 1*simtk.unit.femtoseconds
+           The integration timestep.  The total time taken per iteration
+           will equal timestep * steps_per_hmc
+        collision_rate : numpy.unit.Quantity compatible with 1 / femtoseconds, default: 91 / picoseconds
+           The collision rate for the langevin velocity corruption.
+        max_boost : float, default=0.0
+            Control parameter for linearly ramping of timestep.
+        """
+
+        mm.CustomIntegrator.__init__(self, timestep)
+
+        if len(groups) == 0:
+            raise ValueError("No force groups specified")
+        
+        self.groups = sorted(groups, key=lambda x: x[1])
+        self.steps_per_hmc = steps_per_hmc
+
+        self.collision_rate = collision_rate
+        self.timestep = timestep
+        self.temperature = temperature
+        
+        self.create()
+
+
+    def add_hmc_iterations(self):
+        """Add self.steps_per_hmc iterations of symplectic hamiltonian dynamics."""
+        print("Adding GHMC RESPA steps.")
+        for step in range(self.steps_per_hmc):
+            self._create_substeps(1, self.groups)
+            self.addConstrainVelocities()
+
+    def _create_substeps(self, parentSubsteps, groups):
+        
+        group, substeps = groups[0]
+        
+        str_group, str_sub = str(group), str(substeps)
+        
+        stepsPerParentStep = substeps / parentSubsteps
+
+        if stepsPerParentStep < 1 or stepsPerParentStep != int(stepsPerParentStep):
+            raise ValueError("The number for substeps for each group must be a multiple of the number for the previous group")
+
+        stepsPerParentStep = int(stepsPerParentStep) # needed for Python 3.x
+
+        if group < 0 or group > 31:
+            raise ValueError("Force group must be between 0 and 31")
+
+        for i in range(stepsPerParentStep):
+            self.addComputePerDof("v", "v+0.5*(dt/%s)*f%s/m" % (str_sub, str_group))
+            if len(groups) == 1:                
+                self.addComputePerDof("x", "x+(dt/%s)*v" % (str_sub))
+                self.addComputePerDof("x1", "x")
+                self.addConstrainPositions()
+                self.addComputePerDof("v", "(x-x1)/(dt/%s)" % (str_sub))
+            else:
+                self._create_substeps(substeps, groups[1:])
+            self.addComputePerDof("v", "v+0.5*(dt/%s)*f%s/m" % (str_sub, str_group))
+
+
+            self.addComputePerDof("v", "v+0.5*dt*f/m")
+            self.addComputePerDof("x", "x+dt*v")
+            self.addComputePerDof("x1", "x")
+            self.addConstrainPositions()
+            self.addComputePerDof("v", "v+0.5*dt*f/m+(x-x1)/dt")
+            self.addConstrainVelocities()
