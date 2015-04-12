@@ -261,17 +261,12 @@ class XHMCIntegrator(GHMC2):
         
         self.create()
 
-    def create(self):
-        self.initialize_variables()
-        self.add_draw_velocities_step()
-        self.add_cache_variables_step()
-        self.add_hmc_iterations()
-        self.add_accept_or_reject_step()
-        self.add_accumulate_statistics_step()
 
     def initialize_variables(self):
 
         self.addGlobalVariable("a", 1.0) # accept or reject
+        self.addGlobalVariable("s", 0.0)
+        self.addGlobalVariable("l", 0.0)
 
         self.addGlobalVariable("k_max", self.k_max)  # Maximum number of rounds of dynamics
         self.addGlobalVariable("k", 0)  # Current number of rounds of dynamics
@@ -323,16 +318,12 @@ class XHMCIntegrator(GHMC2):
 
         self.addComputeSum("ke", "0.5*m*v*v")
         self.addComputeGlobal("Eold", "s * (ke + energy) + (1 - s) * Eold")
+        self.addComputeGlobal("Uold", "energy")  # Not strictly necessary
         self.addComputePerDof("xold", "s * x + (1 - s) * xold")
         self.addComputePerDof("vold", "s * v + (1 - s) * vold")
         
         self.addComputeGlobal("mu1", "mu1 * (1 - s)")
         self.addComputeGlobal("uni", "(1 - s) * uni + uniform * s")
-
-    def add_accumulate_statistics_step(self):
-        self.addComputeGlobal("nflip", "nflip + f")
-        self.addComputeGlobal("naccept", "naccept + a")
-        self.addComputeGlobal("ntrials", "ntrials + 1")
 
     def add_accept_or_reject_step(self):
         self.addComputeSum("ke", "0.5*m*v*v")
@@ -351,6 +342,10 @@ class XHMCIntegrator(GHMC2):
         self.addComputeGlobal("kold", "k")  # Store the previous value of k for debugging purposes
         self.addComputeGlobal("k", "(k + 1) * (1 - f) * (1 - a)")  # Increment by one ONLY if not flipping momenta or accepting, otherwise set to zero        
 
+    def add_accumulate_statistics_step(self):
+        self.addComputeGlobal("nflip", "nflip + f")
+        self.addComputeGlobal("naccept", "naccept + a")
+        self.addComputeGlobal("ntrials", "ntrials + 1")
 
     @property
     def n_flip(self):
@@ -361,3 +356,19 @@ class XHMCIntegrator(GHMC2):
     def acceptance_rate(self):
         """The acceptance rate:"""
         return 1.0 - (self.k_max + 1) * self.n_flip / float(self.n_trials)
+
+    def summary(self):
+        """Return a dictionary of relevant state variables for XHMC, useful for debugging.
+        Append self.summary() to a list and print out as a dataframe.
+        """
+        d = {}
+        d["acceptance_rate"] = self.acceptance_rate
+        keys = ["a", "s", "l", "rho", "ke", "Enew", "Unew", "mu", "mu1", "f", "kold", "k", "naccept", "nflip", "ntrials", "Eold", "Uold"]
+        for key in keys:
+            d[key] = self.getGlobalVariableByName(key)
+        
+        d["deltaE"] = d["Enew"] - d["Eold"]
+        
+        return d
+
+
