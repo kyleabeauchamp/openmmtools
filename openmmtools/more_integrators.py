@@ -237,7 +237,7 @@ class RandomTimestepGHMC(GHMC2):
 
     def add_hmc_iterations(self):
         """Add self.steps_per_hmc iterations of symplectic hamiltonian dynamics."""
-        print("Adding GHMC2 steps.")
+        print("Adding GHMC2 steps with randomization.")
         self.addComputeGlobal("scale_factor", "2.0 * uniform")        
         for step in range(self.steps_per_hmc):
             self.addComputePerDof("v", "v+0.5*dt*f/m * scale_factor")
