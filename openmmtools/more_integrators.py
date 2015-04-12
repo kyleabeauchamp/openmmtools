@@ -138,6 +138,25 @@ class GHMC2(mm.CustomIntegrator):
         return self.acceptance_rate * self.timestep
 
 
+    def summary(self):
+        """Return a dictionary of relevant state variables for XHMC, useful for debugging.
+        Append self.summary() to a list and print out as a dataframe.
+        """
+        d = {}
+        d["acceptance_rate"] = self.acceptance_rate
+        keys = ["accept", "ke", "Enew", "naccept", "ntrials", "Eold"]
+        
+        for key in keys:
+            d[key] = self.getGlobalVariableByName(key)
+        
+        d["deltaE"] = d["Enew"] - d["Eold"]
+        
+        return d
+
+
+
+
+
 class RampedHMCIntegrator(GHMC2):
     """Hybrid Monte Carlo (HMC) integrator with linearly ramped non-uniform timesteps.
     """
