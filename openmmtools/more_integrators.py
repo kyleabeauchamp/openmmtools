@@ -271,7 +271,7 @@ class XHMCIntegrator(GHMC2):
         self.addGlobalVariable("k_max", self.k_max)  # Maximum number of rounds of dynamics
         self.addGlobalVariable("k", 0)  # Current number of rounds of dynamics
         self.addGlobalVariable("kold", 0)  # Previous value of k stored for debugging purposes
-        self.addGlobalVariable("f", 0.0)  # Indicator variable whether this iteration was a flip
+        self.addGlobalVariable("flip", 0.0)  # Indicator variable whether this iteration was a flip
         
         self.addGlobalVariable("rho", 0.0)  # temporary variables for acceptance criterion
         self.addGlobalVariable("mu", 0.0)  # 
@@ -334,16 +334,17 @@ class XHMCIntegrator(GHMC2):
         self.addComputeGlobal("mu", "min(1, r)")
         self.addComputeGlobal("mu1", "max(mu1, mu)")
         self.addComputeGlobal("a", "step(mu1 - uni)")
-        self.addComputePerDof("x", "x * a + xold * (1 - a)")
-        self.addComputePerDof("v", "v * a - vold * (1 - a)")
+
+        self.addComputeGlobal("flip", "(1 - a) * l")  # Flip is True ONLY on rejection at last cycle
         
-        self.addComputeGlobal("f", "(1 - a) * l")  # Flip is True ONLY on rejection at last cycle
+        self.addComputePerDof("x", "x * a + xold * (1 - a)")
+        self.addComputePerDof("v", "v * (1 - flip) - vold * flip")  # Conserve velocities except on flips.
         
         self.addComputeGlobal("kold", "k")  # Store the previous value of k for debugging purposes
-        self.addComputeGlobal("k", "(k + 1) * (1 - f) * (1 - a)")  # Increment by one ONLY if not flipping momenta or accepting, otherwise set to zero        
+        self.addComputeGlobal("k", "(k + 1) * (1 - flip) * (1 - a)")  # Increment by one ONLY if not flipping momenta or accepting, otherwise set to zero        
 
     def add_accumulate_statistics_step(self):
-        self.addComputeGlobal("nflip", "nflip + f")
+        self.addComputeGlobal("nflip", "nflip + flip")
         self.addComputeGlobal("naccept", "naccept + a")
         self.addComputeGlobal("ntrials", "ntrials + 1")
 
@@ -363,7 +364,7 @@ class XHMCIntegrator(GHMC2):
         """
         d = {}
         d["acceptance_rate"] = self.acceptance_rate
-        keys = ["a", "s", "l", "rho", "ke", "Enew", "Unew", "mu", "mu1", "f", "kold", "k", "naccept", "nflip", "ntrials", "Eold", "Uold"]
+        keys = ["a", "s", "l", "rho", "ke", "Enew", "Unew", "mu", "mu1", "flip", "kold", "k", "naccept", "nflip", "ntrials", "Eold", "Uold"]
         for key in keys:
             d[key] = self.getGlobalVariableByName(key)
         
