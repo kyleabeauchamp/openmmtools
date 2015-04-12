@@ -40,8 +40,6 @@ class GHMC2(mm.CustomIntegrator):
         mm.CustomIntegrator.__init__(self, timestep)
         
         self.steps_per_hmc = steps_per_hmc
-
-        # Compute the thermal energy.
         self.temperature = temperature
         self.collision_rate = collision_rate        
         self.timestep = timestep
@@ -227,7 +225,7 @@ class RandomTimestepGHMC(GHMC2):
         
         self.steps_per_hmc = steps_per_hmc
         
-        self.addGlobalVariable("scale_factor", 2.0) # thermal energy
+        self.addGlobalVariable("scale_factor", 2.0) # Randomized scaling factor for timestep
 
         # Compute the thermal energy.
         self.temperature = temperature
@@ -246,3 +244,120 @@ class RandomTimestepGHMC(GHMC2):
             self.addConstrainPositions()
             self.addComputePerDof("v", "v+0.5*dt*f/m * scale_factor+(x-x1)/(dt * scale_factor)")
             self.addConstrainVelocities()
+
+
+class XHMCIntegrator(GHMC2):
+    """Extra Chance Generalized Hamiltonian Monte Carlo."""
+    def __init__(self, temperature=298.0*simtk.unit.kelvin, collision_rate=91.0/simtk.unit.picoseconds, timestep=1.0*simtk.unit.femtoseconds, steps_per_hmc=10, k_max=2):
+        """
+        """
+        mm.CustomIntegrator.__init__(self, timestep)
+        
+        self.temperature = temperature
+        self.steps_per_hmc = steps_per_hmc
+        self.collision_rate = collision_rate        
+        self.timestep = timestep
+        self.k_max = k_max
+        
+        self.create()
+
+    def create(self):
+        self.initialize_variables()
+        self.add_draw_velocities_step()
+        self.add_cache_variables_step()
+        self.add_hmc_iterations()
+        self.add_accept_or_reject_step()
+        self.add_accumulate_statistics_step()
+
+    def initialize_variables(self):
+
+        self.addGlobalVariable("a", 1.0) # accept or reject
+
+        self.addGlobalVariable("k_max", self.k_max)  # Maximum number of rounds of dynamics
+        self.addGlobalVariable("k", 0)  # Current number of rounds of dynamics
+        self.addGlobalVariable("kold", 0)  # Previous value of k stored for debugging purposes
+        self.addGlobalVariable("f", 0.0)  # Indicator variable whether this iteration was a flip
+        
+        self.addGlobalVariable("rho", 0.0)  # temporary variables for acceptance criterion
+        self.addGlobalVariable("mu", 0.0)  # 
+        self.addGlobalVariable("mu1", 0.0)  # 
+        self.addGlobalVariable("mu10", 1.0) # Previous value of mu1
+        self.addGlobalVariable("Uold", 0.0)
+        self.addGlobalVariable("Unew", 0.0)
+        self.addGlobalVariable("uni", 0.0)  # Uniform random variable generated once per round of XHMC
+
+        self.addGlobalVariable("nflip", 0) # number of momentum flips (e.g. complete rejections)
+
+        # Below this point is possible base class material
+        
+        self.addGlobalVariable("naccept", 0) # number accepted
+        self.addGlobalVariable("ntrials", 0) # number of Metropolization trials
+
+        self.addGlobalVariable("kT", self.kT) # thermal energy
+        self.addPerDofVariable("sigma", 0)
+        self.addGlobalVariable("ke", 0) # kinetic energy
+        self.addPerDofVariable("xold", 0) # old positions
+        self.addPerDofVariable("vold", 0) # old velocities
+        self.addGlobalVariable("Eold", 0) # old energy
+        self.addGlobalVariable("Enew", 0) # new energy
+        #self.addGlobalVariable("accept", 0) # DEFINED ABOVE
+        self.addPerDofVariable("x1", 0) # for constraints
+        self.addGlobalVariable("b", self.b) # velocity mixing parameter                
+
+        self.addComputePerDof("sigma", "sqrt(kT/m)")
+        self.addUpdateContextState()
+
+    def add_draw_velocities_step(self):
+        """Draw perturbed velocities."""
+        self.addComputeGlobal("s", "step(-k)")  # True only on first step of XHMC round
+        self.addComputeGlobal("l", "step(k - k_max)")  # True only only last step of XHMC round
+
+        self.addUpdateContextState()
+        self.addConstrainPositions()
+
+        self.addComputePerDof("v", "s * (sqrt(b) * v + (1 - s) * sqrt(1 - b) * sigma * gaussian) + (1 - s) * v")
+        self.addConstrainVelocities()
+
+    def add_cache_variables_step(self):
+        """Store old positions and energies."""
+
+        self.addComputeSum("ke", "0.5*m*v*v")
+        self.addComputeGlobal("Eold", "s * (ke + energy) + (1 - s) * Eold")
+        self.addComputePerDof("xold", "s * x + (1 - s) * xold")
+        self.addComputePerDof("vold", "s * v + (1 - s) * vold")
+        
+        self.addComputeGlobal("mu1", "mu1 * (1 - s)")
+        self.addComputeGlobal("uni", "(1 - s) * uni + uniform * s")
+
+    def add_accumulate_statistics_step(self):
+        self.addComputeGlobal("nflip", "nflip + f")
+        self.addComputeGlobal("naccept", "naccept + a")
+        self.addComputeGlobal("ntrials", "ntrials + 1")
+
+    def add_accept_or_reject_step(self):
+        self.addComputeSum("ke", "0.5*m*v*v")
+        self.addComputeGlobal("Enew", "ke + energy")
+
+        self.addComputeGlobal("Unew", "energy")
+        self.addComputeGlobal("r", "exp(-(Enew - Eold) / kT)")
+        self.addComputeGlobal("mu", "min(1, r)")
+        self.addComputeGlobal("mu1", "max(mu1, mu)")
+        self.addComputeGlobal("a", "step(mu1 - uni)")
+        self.addComputePerDof("x", "x * a + xold * (1 - a)")
+        self.addComputePerDof("v", "v * a - vold * (1 - a)")
+        
+        self.addComputeGlobal("f", "(1 - a) * l")  # Flip is True ONLY on rejection at last cycle
+        
+        self.addComputeGlobal("kold", "k")  # Store the previous value of k for debugging purposes
+        self.addComputeGlobal("k", "(k + 1) * (1 - f) * (1 - a)")  # Increment by one ONLY if not flipping momenta or accepting, otherwise set to zero        
+
+
+    @property
+    def n_flip(self):
+        """The total number of momentum flips."""
+        return self.getGlobalVariableByName("nflip")
+
+    @property
+    def acceptance_rate(self):
+        """The acceptance rate:"""
+        return 1.0 - (self.k_max + 1) * self.n_flip / float(self.n_trials)
