@@ -323,7 +323,7 @@ class RandomTimestepGHMC(GHMC2):
 
 class XHMCIntegrator(GHMC2):
     """Extra Chance Generalized Hamiltonian Monte Carlo."""
-    def __init__(self, temperature=298.0*simtk.unit.kelvin, collision_rate=91.0/simtk.unit.picoseconds, timestep=1.0*simtk.unit.femtoseconds, steps_per_hmc=10, k_max=2):
+    def __init__(self, temperature=298.0*simtk.unit.kelvin, steps_per_hmc=10, timestep=1*simtk.unit.femtoseconds, collision_rate=91.0/simtk.unit.picoseconds, k_max=2):
         """
         """
         mm.CustomIntegrator.__init__(self, timestep)
