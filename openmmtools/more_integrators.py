@@ -66,7 +66,7 @@ class GHMC2(mm.CustomIntegrator):
             
             self.elapsed_time += time.time() - t0
             self.elapsed_steps += 1
-            d = integrator.summary()
+            d = self.summary()
             data.append(d)
         data = pd.DataFrame(data)
         data["performance"] = data.effective_timestep / (self.elapsed_time / self.elapsed_steps)
