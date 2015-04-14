@@ -151,6 +151,7 @@ class GHMC2(mm.CustomIntegrator):
         """
         d = {}
         d["acceptance_rate"] = self.acceptance_rate
+        d["effective_timestep"] = self.effective_timestep
         keys = ["accept", "ke", "Enew", "naccept", "ntrials", "Eold"]
         
         for key in keys:
