@@ -81,7 +81,7 @@ class GHMC2(mm.CustomIntegrator):
     def add_draw_velocities_step(self):
         """Draw perturbed velocities."""
         self.addComputePerDof("v", "sqrt(b)*v + sqrt(1-b)*sigma*gaussian")
-        self.addConstrainVelocities();
+        self.addConstrainVelocities()
 
     def add_cache_variables_step(self):
         """Store old positions and energies."""
@@ -442,14 +442,14 @@ class GHMCRESPA(GHMC2):
         self.create()
 
 
-    def add_hmc_iterations_old(self):
+    def add_hmc_iterations(self):
         """Add self.steps_per_hmc iterations of symplectic hamiltonian dynamics."""
         print("Adding GHMC RESPA steps.")
         for step in range(self.steps_per_hmc):
             self._create_substeps(1, self.groups)
             self.addConstrainVelocities()
 
-    def _create_substeps_old(self, parentSubsteps, groups):
+    def _create_substeps(self, parentSubsteps, groups):
         
         group, substeps = groups[0]
         
@@ -468,18 +468,10 @@ class GHMCRESPA(GHMC2):
         for i in range(stepsPerParentStep):
             self.addComputePerDof("v", "v+0.5*(dt/%s)*f%s/m" % (str_sub, str_group))
             if len(groups) == 1:                
-                self.addComputePerDof("x", "x+(dt/%s)*v" % (str_sub))
                 self.addComputePerDof("x1", "x")
+                self.addComputePerDof("x", "x+(dt/%s)*v" % (str_sub))
                 self.addConstrainPositions()
                 self.addComputePerDof("v", "(x-x1)/(dt/%s)" % (str_sub))
             else:
                 self._create_substeps(substeps, groups[1:])
             self.addComputePerDof("v", "v+0.5*(dt/%s)*f%s/m" % (str_sub, str_group))
-
-
-            self.addComputePerDof("v", "v+0.5*dt*f/m")
-            self.addComputePerDof("x", "x+dt*v")
-            self.addComputePerDof("x1", "x")
-            self.addConstrainPositions()
-            self.addComputePerDof("v", "v+0.5*dt*f/m+(x-x1)/dt")
-            self.addConstrainVelocities()
