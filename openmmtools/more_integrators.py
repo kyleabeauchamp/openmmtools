@@ -1,3 +1,5 @@
+import time
+import pandas as pd
 import numpy as np
 
 import simtk.unit
@@ -51,6 +53,25 @@ class GHMC2(mm.CustomIntegrator):
         self.collision_rate = collision_rate        
         self.timestep = timestep
         self.create()
+
+    def vstep(self, n_steps):
+        if not hasattr(self, "elapsed_time"):
+            self.elapsed_time = 0.0
+        if not hasattr(self, "elapsed_steps"):
+            self.elapsed_steps = 0.0
+        data = []
+        for i in range(n_steps):
+            t0 = time.time()
+            integrator.step(1)
+            
+            self.elapsed_time += time.time() - t0
+            self.elapsed_steps += 1
+            d = integrator.summary()
+            data.append(d)
+        data = pd.DataFrame(data)
+        data["performance"] = data.effective_timestep / (self.elapsed_time / self.elapsed_steps)
+        print(data)
+        return data
 
     def create(self):
         self.initialize_variables()
