@@ -54,28 +54,49 @@ class GHMC2(mm.CustomIntegrator):
         self.collision_rate = collision_rate        
         self.timestep = timestep
         self.create()
-
-    def vstep(self, n_steps):
-        """Do n_steps of dynamics and return a summary dataframe."""
+    
+    def step(self, n_steps):
         if not hasattr(self, "elapsed_time"):
             self.elapsed_time = 0.0
         if not hasattr(self, "elapsed_steps"):
             self.elapsed_steps = 0.0
+        
+        t0 = time.time()
+        mm.CustomIntegrator.step(self, n_steps)        
+        self.elapsed_time += time.time() - t0
+        
+        self.elapsed_steps += self.steps_per_hmc
+
+    @property
+    def time_per_step(self):
+        return (self.elapsed_time / self.elapsed_steps)
+
+    @property
+    def days_per_step(self):
+        return self.time_per_step / (60. * 60. * 24.)
+
+    @property
+    def effective_ns_per_day(self):
+        return (self.effective_timestep / self.days_per_step) / u.nanoseconds
+
+    @property
+    def ns_per_day(self):
+        return (self.timestep / self.days_per_step) / u.nanoseconds
+
+    def vstep(self, n_steps, verbose=False):
+        """Do n_steps of dynamics and return a summary dataframe."""
+
         data = []
         for i in range(n_steps):
             
-            t0 = time.time()
             self.step(1)
-            
-            self.elapsed_time += time.time() - t0
-            self.elapsed_steps += self.steps_per_hmc
-            
+
             d = self.summary()
             data.append(d)
         data = pd.DataFrame(data)
-        days_per_step = (self.elapsed_time / self.elapsed_steps) / (60. * 60. * 24.)
-        data["effective_ns_per_day"] = (data.effective_timestep / days_per_step) / u.nanoseconds
-        data["ns_per_day"] = (self.timestep / days_per_step) / u.nanoseconds
+        
+        data["effective_ns_per_day"] = self.effective_ns_per_day
+        data["ns_per_day"] = self.ns_per_day
         data["time_per_step"] = (self.elapsed_time / self.elapsed_steps)
         print(data)
         return data
