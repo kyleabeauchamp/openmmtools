@@ -442,14 +442,14 @@ class GHMCRESPA(GHMC2):
         self.create()
 
 
-    def add_hmc_iterations(self):
+    def add_hmc_iterations_old(self):
         """Add self.steps_per_hmc iterations of symplectic hamiltonian dynamics."""
         print("Adding GHMC RESPA steps.")
         for step in range(self.steps_per_hmc):
             self._create_substeps(1, self.groups)
             self.addConstrainVelocities()
 
-    def _create_substeps(self, parentSubsteps, groups):
+    def _create_substeps_old(self, parentSubsteps, groups):
         
         group, substeps = groups[0]
         
