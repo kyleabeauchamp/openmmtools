@@ -62,7 +62,7 @@ class GHMC2(mm.CustomIntegrator):
         data = []
         for i in range(n_steps):
             t0 = time.time()
-            integrator.step(1)
+            self.step(1)
             
             self.elapsed_time += time.time() - t0
             self.elapsed_steps += 1
