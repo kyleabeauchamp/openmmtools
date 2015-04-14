@@ -65,7 +65,7 @@ class GHMC2(mm.CustomIntegrator):
         mm.CustomIntegrator.step(self, n_steps)        
         self.elapsed_time += time.time() - t0
         
-        self.elapsed_steps += self.steps_per_hmc
+        self.elapsed_steps += self.steps_per_hmc * n_steps
 
     @property
     def time_per_step(self):
