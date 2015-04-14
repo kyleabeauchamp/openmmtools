@@ -194,7 +194,7 @@ class GHMC2(mm.CustomIntegrator):
         """The acceptance rate times the timestep."""
         return self.acceptance_rate * self.timestep
 
-
+    @property
     def summary(self):
         """Return a dictionary of relevant state variables for XHMC, useful for debugging.
         Append self.summary() to a list and print out as a dataframe.
@@ -436,6 +436,7 @@ class XHMCIntegrator(GHMC2):
         """The acceptance rate:"""
         return 1.0 - (self.k_max + 1) * self.n_flip / float(self.n_trials)
 
+    @property
     def summary(self):
         """Return a dictionary of relevant state variables for XHMC, useful for debugging.
         Append self.summary() to a list and print out as a dataframe.
