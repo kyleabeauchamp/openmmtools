@@ -18,15 +18,12 @@ kB = units.BOLTZMANN_CONSTANT_kB * units.AVOGADRO_CONSTANT_NA
 # INTEGRATORS
 #=============================================================================================
 
-def guess_force_groups(system, separate_reciprical=True):
-    """Set NB short-range to 1 and long-range to 2, which is usually OK."""
+def guess_force_groups(system, nonbonded=1, fft=1):
+    """Set NB short-range to 1 and long-range to 1, which is usually OK."""
     for force in system.getForces():
         if isinstance(force, mm.openmm.NonbondedForce):
-            force.setForceGroup(1)
-            if separate_reciprical:
-                force.setReciprocalSpaceForceGroup(2)
-            else:
-                force.setReciprocalSpaceForceGroup(1)
+            force.setForceGroup(nonbonded)
+            force.setReciprocalSpaceForceGroup(fft)
 
 
 class GHMC2(mm.CustomIntegrator):
@@ -202,6 +199,7 @@ class GHMC2(mm.CustomIntegrator):
         d = {}
         d["acceptance_rate"] = self.acceptance_rate
         d["effective_timestep"] = self.effective_timestep
+        d["effective_ns_per_day"] = self.effective_ns_per_day
         keys = ["accept", "ke", "Enew", "naccept", "ntrials", "Eold"]
         
         for key in keys:
