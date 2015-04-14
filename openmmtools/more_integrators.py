@@ -18,12 +18,15 @@ kB = units.BOLTZMANN_CONSTANT_kB * units.AVOGADRO_CONSTANT_NA
 # INTEGRATORS
 #=============================================================================================
 
-def guess_force_groups(system):
+def guess_force_groups(system, separate_reciprical=True):
     """Set NB short-range to 1 and long-range to 2, which is usually OK."""
     for force in system.getForces():
         if isinstance(force, mm.openmm.NonbondedForce):
             force.setForceGroup(1)
-            force.setReciprocalSpaceForceGroup(2)
+            if separate_reciprical:
+                force.setReciprocalSpaceForceGroup(2)
+            else:
+                force.setReciprocalSpaceForceGroup(1)
 
 
 class GHMC2(mm.CustomIntegrator):
@@ -139,19 +142,6 @@ class GHMC2(mm.CustomIntegrator):
         self.addComputePerDof("xold", "x")
         self.addComputePerDof("vold", "v")        
 
-
-    def add_accumulate_statistics_step(self):
-        self.addComputeGlobal("naccept", "naccept + accept")
-        self.addComputeGlobal("ntrials", "ntrials + 1")
-
-
-    def add_accept_or_reject_step(self):
-        self.addComputeSum("ke", "0.5*m*v*v")
-        self.addComputeGlobal("Enew", "ke + energy")
-        self.addComputeGlobal("accept", "step(exp(-(Enew-Eold)/kT) - uniform)")
-        self.addComputePerDof("x", "x*accept + xold*(1-accept)")
-        self.addComputePerDof("v", "v*accept - vold*(1-accept)")  # Notice the minus sign: momentum flip
-
     def add_hmc_iterations(self):
         """Add self.steps_per_hmc iterations of symplectic hamiltonian dynamics."""
         print("Adding GHMC2 steps.")
@@ -162,6 +152,17 @@ class GHMC2(mm.CustomIntegrator):
             self.addConstrainPositions()
             self.addComputePerDof("v", "v+0.5*dt*f/m+(x-x1)/dt")
             self.addConstrainVelocities()
+
+    def add_accept_or_reject_step(self):
+        self.addComputeSum("ke", "0.5*m*v*v")
+        self.addComputeGlobal("Enew", "ke + energy")
+        self.addComputeGlobal("accept", "step(exp(-(Enew-Eold)/kT) - uniform)")
+        self.addComputePerDof("x", "x*accept + xold*(1-accept)")
+        self.addComputePerDof("v", "v*accept - vold*(1-accept)")  # Notice the minus sign: momentum flip
+
+    def add_accumulate_statistics_step(self):
+        self.addComputeGlobal("naccept", "naccept + accept")
+        self.addComputeGlobal("ntrials", "ntrials + 1")
 
     @property
     def kT(self):
