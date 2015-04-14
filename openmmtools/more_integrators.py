@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 
 import simtk.unit
+u = simtk.unit
 
 import simtk.unit as units
 import simtk.openmm as mm
