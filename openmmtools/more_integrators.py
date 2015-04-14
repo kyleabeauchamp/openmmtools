@@ -94,7 +94,7 @@ class GHMC2(mm.CustomIntegrator):
             
             self.step(1)
 
-            d = self.summary()
+            d = self.summary
             data.append(d)
         data = pd.DataFrame(data)
         
