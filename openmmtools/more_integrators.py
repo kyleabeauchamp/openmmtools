@@ -74,9 +74,9 @@ class GHMC2(mm.CustomIntegrator):
             data.append(d)
         data = pd.DataFrame(data)
         days_per_step = (self.elapsed_time / self.elapsed_steps) / (60. * 60. * 24.)
-        data["effective_ns_per_day"] = (data.effective_timestep / days_per_step) / u.nanoseconds
-        data["ns_per_day"] = (self.timestep / days_per_step) / u.nanoseconds
-        data["time_per_step"] = (self.elapsed_time / self.elapsed_steps)
+        data["effective_ns_per_day"] = self.steps_per_hmc * (data.effective_timestep / days_per_step) / u.nanoseconds
+        data["ns_per_day"] = self.steps_per_hmc * (self.timestep / days_per_step) / u.nanoseconds
+        data["time_per_step"] = self.steps_per_hmc * (self.elapsed_time / self.elapsed_steps)
         print(data)
         return data
 
