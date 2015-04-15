@@ -94,16 +94,16 @@ class GHMC2(mm.CustomIntegrator):
 
         data = []
         for i in range(n_steps):
-            
             self.step(1)
 
             d = self.summary
             data.append(d)
+        
         data = pd.DataFrame(data)
         
-        data["effective_ns_per_day"] = self.effective_ns_per_day
-        data["ns_per_day"] = self.ns_per_day
-        data["time_per_step"] = (self.elapsed_time / self.elapsed_steps)
+        #data["effective_ns_per_day"] = self.effective_ns_per_day
+        #data["ns_per_day"] = self.ns_per_day
+        #data["time_per_step"] = (self.elapsed_time / self.elapsed_steps)
         #print(data)
         print(data.to_string(formatters=[lambda x: "%.4g" % x for x in range(data.shape[1])]))
         return data
@@ -205,7 +205,7 @@ class GHMC2(mm.CustomIntegrator):
         """
         d = {}
         d["acceptance_rate"] = self.acceptance_rate
-        d["effective_timestep"] = self.effective_timestep
+        d["effective_timestep"] = self.effective_timestep / u.femtoseconds
         d["effective_ns_per_day"] = self.effective_ns_per_day
         keys = ["accept", "ke", "Enew", "naccept", "ntrials", "Eold"]
         
