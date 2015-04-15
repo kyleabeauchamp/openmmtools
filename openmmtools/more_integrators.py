@@ -104,7 +104,8 @@ class GHMC2(mm.CustomIntegrator):
         data["effective_ns_per_day"] = self.effective_ns_per_day
         data["ns_per_day"] = self.ns_per_day
         data["time_per_step"] = (self.elapsed_time / self.elapsed_steps)
-        print(data)
+        #print(data)
+        print(data.to_string(formatters=[lambda x: "%.4g" % x for x in range(data.shape[1])]))
         return data
 
     def create(self):
@@ -364,6 +365,7 @@ class XHMCIntegrator(GHMC2):
         self.addGlobalVariable("uni", 0.0)  # Uniform random variable generated once per round of XHMC
 
         self.addGlobalVariable("nflip", 0) # number of momentum flips (e.g. complete rejections)
+        self.addGlobalVariable("nrounds", 0) # number of "rounds" of XHMC, e.g. the number of times k = 0
 
         # Below this point is possible base class material
         
@@ -387,6 +389,7 @@ class XHMCIntegrator(GHMC2):
     def add_draw_velocities_step(self):
         """Draw perturbed velocities."""
         self.addComputeGlobal("s", "step(-k)")  # True only on first step of XHMC round
+        self.addComputeGlobal("nrounds", "nrounds + s")  # True only on first step of XHMC round
         self.addComputeGlobal("l", "step(k - k_max)")  # True only only last step of XHMC round
 
         self.addUpdateContextState()
@@ -436,9 +439,15 @@ class XHMCIntegrator(GHMC2):
         return self.getGlobalVariableByName("nflip")
 
     @property
+    def n_rounds(self):
+        """The total number of momentum flips."""
+        return self.getGlobalVariableByName("nrounds")
+
+
+    @property
     def acceptance_rate(self):
         """The acceptance rate:"""
-        return 1.0 - (self.k_max + 1) * self.n_flip / float(self.n_trials)
+        return 1.0 - self.n_flip / float(self.n_rounds)
 
     @property
     def summary(self):
@@ -447,7 +456,7 @@ class XHMCIntegrator(GHMC2):
         """
         d = {}
         d["acceptance_rate"] = self.acceptance_rate
-        keys = ["a", "s", "l", "rho", "ke", "Enew", "Unew", "mu", "mu1", "flip", "kold", "k", "naccept", "nflip", "ntrials", "Eold", "Uold"]
+        keys = ["a", "s", "l", "rho", "ke", "Enew", "Unew", "mu", "mu1", "flip", "kold", "k", "naccept", "nflip", "ntrials", "nrounds", "Eold", "Uold"]
         for key in keys:
             d[key] = self.getGlobalVariableByName(key)
         
