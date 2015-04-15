@@ -56,16 +56,22 @@ class GHMC2(mm.CustomIntegrator):
         self.create()
     
     def step(self, n_steps):
-        if not hasattr(self, "elapsed_time"):
-            self.elapsed_time = 0.0
-        if not hasattr(self, "elapsed_steps"):
-            self.elapsed_steps = 0.0
         
         t0 = time.time()
         mm.CustomIntegrator.step(self, n_steps)        
-        self.elapsed_time += time.time() - t0
+        dt = time.time() - t0
+
+        # Don't accumulate on first call due to nvcc compilation overhead
+        if not hasattr(self, "elapsed_time"):
+            self.elapsed_time = 0.0
+        else:
+            self.elapsed_time += dt
+        if not hasattr(self, "elapsed_steps"):
+            self.elapsed_steps = 0.0
+        else:
+            self.elapsed_steps += self.steps_per_hmc * n_steps
         
-        self.elapsed_steps += self.steps_per_hmc * n_steps
+        
 
     @property
     def time_per_step(self):
