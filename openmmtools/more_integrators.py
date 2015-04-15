@@ -207,6 +207,7 @@ class GHMC2(mm.CustomIntegrator):
         d["acceptance_rate"] = self.acceptance_rate
         d["effective_timestep"] = self.effective_timestep / u.femtoseconds
         d["effective_ns_per_day"] = self.effective_ns_per_day
+        d["ns_per_day"] = self.ns_per_day
         keys = ["accept", "ke", "Enew", "naccept", "ntrials", "Eold"]
         
         for key in keys:
@@ -349,7 +350,7 @@ class XHMCIntegrator(GHMC2):
         self.addGlobalVariable("a", 1.0) # accept or reject
         self.addGlobalVariable("s", 0.0)
         self.addGlobalVariable("l", 0.0)
-        self.addGlobalVariable("r", 0.0) # accept or reject
+        self.addGlobalVariable("r", 0.0) # Metropolis ratio: ratio probabilities
 
         self.addGlobalVariable("k_max", self.k_max)  # Maximum number of rounds of dynamics
         self.addGlobalVariable("k", 0)  # Current number of rounds of dynamics
@@ -403,7 +404,7 @@ class XHMCIntegrator(GHMC2):
 
         self.addComputeSum("ke", "0.5*m*v*v")
         self.addComputeGlobal("Eold", "s * (ke + energy) + (1 - s) * Eold")
-        self.addComputeGlobal("Uold", "energy")  # Not strictly necessary
+        self.addComputeGlobal("Uold", "energy")  # Not strictly necessary, used for debugging
         self.addComputePerDof("xold", "s * x + (1 - s) * xold")
         self.addComputePerDof("vold", "s * v + (1 - s) * vold")
         
