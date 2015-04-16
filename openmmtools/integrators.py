@@ -48,8 +48,9 @@ from .constants import kB
 # INTEGRATORS
 #=============================================================================================
 
-from .more_integrators import *
+from .ghmc_integrators import *
 from openmmtools import respa
+
 class MTSIntegrator(respa.MTSIntegrator):
     """
     MTSIntegrator implements the rRESPA multiple time step integration algorithm.
