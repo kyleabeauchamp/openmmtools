@@ -462,8 +462,26 @@ class XHMCIntegrator(GHMCIntegrator):
 
 
 class GHMCRESPA(GHMCIntegrator):
-    """Generalized Hamiltonian Monte Carlo (GHMC) RESPA multiple timestep
-    integrator.
+    """Generalized Hamiltonian Monte Carlo (GHMC) with a rRESPA multiple
+    time step integration algorithm.  Combines GHMCIntegrator with
+    MTSIntegrator.  
+
+    This integrator allows different forces to be evaluated at different frequencies,
+    for example to evaluate the expensive, slowly changing forces less frequently than
+    the inexpensive, quickly changing forces.
+
+    To use it, you must first divide your forces into two or more groups (by calling
+    setForceGroup() on them) that should be evaluated at different frequencies.  When
+    you create the integrator, you provide a tuple for each group specifying the index
+    of the force group and the frequency (as a fraction of the outermost time step) at
+    which to evaluate it.  For example:
+
+    >>> integrator = MTSIntegrator(4*simtk.unit.femtoseconds, [(0,1), (1,2), (2,8)])
+
+    This specifies that the outermost time step is 4 fs, so each step of the integrator
+    will advance time by that much.  It also says that force group 0 should be evaluated
+    once per time step, force group 1 should be evaluated twice per time step (every 2 fs),
+    and force group 2 should be evaluated eight times per time step (every 0.5 fs).
     
     Notes
     -----
@@ -478,8 +496,8 @@ class GHMCRESPA(GHMCIntegrator):
     References
     ----------
     C. M. Campos, J. M. Sanz-Serna, J. Comp. Phys. 281, (2015) 
-    J. Sohl-Dickstein, M. Mudigonda, M. DeWeese.  ICML (2014)    
-    
+    J. Sohl-Dickstein, M. Mudigonda, M. DeWeese.  ICML (2014)  
+    Tuckerman et al., J. Chem. Phys. 97(3) pp. 1990-2001 (1992)
     """
 
     def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=1.0/u.picoseconds, groups=None):
@@ -488,17 +506,20 @@ class GHMCRESPA(GHMCIntegrator):
         Parameters
         ----------
         temperature : numpy.unit.Quantity compatible with kelvin, default: 298*simtk.unit.kelvin
-           The temperature.
+            The temperature.
         steps_per_hmc : int, default: 10
-           The number of velocity Verlet steps to take per round of hamiltonian dynamics
-           This must be an even number!
+            The number of velocity Verlet steps to take per round of hamiltonian dynamics
+            This must be an even number!
         timestep : numpy.unit.Quantity compatible with femtoseconds, default: 1*simtk.unit.femtoseconds
-           The integration timestep.  The total time taken per iteration
-           will equal timestep * steps_per_hmc
+            The integration timestep.  The total time taken per iteration
+            will equal timestep * steps_per_hmc
         collision_rate : numpy.unit.Quantity compatible with 1 / femtoseconds, default: 1 / picoseconds
-           The collision rate for the langevin velocity corruption.
-        max_boost : float, default=0.0
-            Control parameter for linearly ramping of timestep.
+            The collision rate for the langevin velocity corruption.
+        groups : list of tuples, optional, default=(0,1)
+            A list of tuples defining the force groups.  The first element
+            of each tuple is the force group index, and the second element
+            is the number of times that force group should be evaluated in
+            one time step.
         """
 
         mm.CustomIntegrator.__init__(self, timestep)
