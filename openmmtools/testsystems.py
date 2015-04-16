@@ -58,7 +58,8 @@ from simtk import openmm
 from simtk import unit
 from simtk.openmm import app
 
-kB = unit.BOLTZMANN_CONSTANT_kB * unit.AVOGADRO_CONSTANT_NA
+from .constants import kB
+
 pi = np.pi
 
 #=============================================================================================

@@ -41,12 +41,8 @@ import simtk.unit
 
 import simtk.unit as units
 import simtk.openmm as mm
+from .constants import kB
 
-#=============================================================================================
-# CONSTANTS
-#=============================================================================================
-
-kB = units.BOLTZMANN_CONSTANT_kB * units.AVOGADRO_CONSTANT_NA
 
 #=============================================================================================
 # INTEGRATORS

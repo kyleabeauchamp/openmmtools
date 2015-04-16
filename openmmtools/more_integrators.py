@@ -2,17 +2,10 @@ import time
 import pandas as pd
 import numpy as np
 
-import simtk.unit
-u = simtk.unit
+import simtk.unit as u
 
-import simtk.unit as units
 import simtk.openmm as mm
-
-#=============================================================================================
-# CONSTANTS
-#=============================================================================================
-
-kB = units.BOLTZMANN_CONSTANT_kB * units.AVOGADRO_CONSTANT_NA
+from .constants import kB
 
 #=============================================================================================
 # INTEGRATORS
@@ -30,9 +23,20 @@ def guess_force_groups(system, nonbonded=1, fft=1, others=0):
 
 class GHMC2(mm.CustomIntegrator):
     """Generalized hybrid Monte Carlo (GHMC) integrator.
+    
+    Notes
+    -----
+    This follows the definition of GHMC given in "Extra Chance Generalized
+    Hamiltonian Monte Carlo".  Specifically, the velocities are corrupted,
+    steps_per_hmc steps of hamiltonian dynamics are performed, and then 
+    an accept / reject move is taken.  
+    
+    This class is the base class for a number of more specialized versions
+    of GHMC.
+    
     """
 
-    def __init__(self, temperature=298.0*simtk.unit.kelvin, steps_per_hmc=10, timestep=1*simtk.unit.femtoseconds, collision_rate=91.0/simtk.unit.picoseconds):
+    def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=1.0 / u.picoseconds):
         """Create a generalized hybrid Monte Carlo (GHMC) integrator.
 
         Parameters
@@ -45,7 +49,7 @@ class GHMC2(mm.CustomIntegrator):
         timestep : numpy.unit.Quantity compatible with femtoseconds, default: 1*simtk.unit.femtoseconds
            The integration timestep.  The total time taken per iteration
            will equal timestep * steps_per_hmc
-        collision_rate : numpy.unit.Quantity compatible with 1 / femtoseconds, default: 91 / picoseconds
+        collision_rate : numpy.unit.Quantity compatible with 1 / femtoseconds, default: 1 / picoseconds
            The collision rate for the langevin velocity corruption.
         """
 
@@ -230,7 +234,7 @@ class RampedHMCIntegrator(GHMC2):
     """Hybrid Monte Carlo (HMC) integrator with linearly ramped non-uniform timesteps.
     """
 
-    def __init__(self, temperature=298.0*simtk.unit.kelvin, steps_per_hmc=10, timestep=1*simtk.unit.femtoseconds, collision_rate=91.0/simtk.unit.picoseconds, max_boost=0.0):
+    def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=91.0/u.picoseconds, max_boost=0.0):
         """Create a hybrid Monte Carlo (HMC) integrator with linearly ramped non-uniform timesteps.
 
         Parameters
@@ -243,7 +247,7 @@ class RampedHMCIntegrator(GHMC2):
         timestep : numpy.unit.Quantity compatible with femtoseconds, default: 1*simtk.unit.femtoseconds
            The integration timestep.  The total time taken per iteration
            will equal timestep * steps_per_hmc
-        collision_rate : numpy.unit.Quantity compatible with 1 / femtoseconds, default: 91 / picoseconds
+        collision_rate : numpy.unit.Quantity compatible with 1 / femtoseconds, default: 1 / picoseconds
            The collision rate for the langevin velocity corruption.
         max_boost : float, default=0.0
             Control parameter for linearly ramping of timestep.
@@ -289,8 +293,8 @@ class RampedHMCIntegrator(GHMC2):
 
 class XHMCIntegrator(GHMC2):
     """Extra Chance Generalized Hamiltonian Monte Carlo."""
-    def __init__(self, temperature=298.0*simtk.unit.kelvin, steps_per_hmc=10, timestep=1*simtk.unit.femtoseconds, collision_rate=91.0/simtk.unit.picoseconds, k_max=2):
-        """
+    def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=1.0 / u.picoseconds, k_max=2):
+        """CURRENTLY BROKEN!!!!!
         """
         mm.CustomIntegrator.__init__(self, timestep)
         
@@ -424,15 +428,11 @@ class XHMCIntegrator(GHMC2):
         return d
 
 
-
-
-
-
 class GHMCRESPA(GHMC2):
     """Hybrid Monte Carlo (HMC) integrator with linearly ramped non-uniform timesteps.
     """
 
-    def __init__(self, temperature=298.0*simtk.unit.kelvin, steps_per_hmc=10, timestep=1*simtk.unit.femtoseconds, collision_rate=91.0/simtk.unit.picoseconds, groups=None):
+    def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=1.0/u.picoseconds, groups=None):
         """Create a hybrid Monte Carlo (HMC) integrator with linearly ramped non-uniform timesteps.
 
         Parameters
@@ -445,7 +445,7 @@ class GHMCRESPA(GHMC2):
         timestep : numpy.unit.Quantity compatible with femtoseconds, default: 1*simtk.unit.femtoseconds
            The integration timestep.  The total time taken per iteration
            will equal timestep * steps_per_hmc
-        collision_rate : numpy.unit.Quantity compatible with 1 / femtoseconds, default: 91 / picoseconds
+        collision_rate : numpy.unit.Quantity compatible with 1 / femtoseconds, default: 1 / picoseconds
            The collision rate for the langevin velocity corruption.
         max_boost : float, default=0.0
             Control parameter for linearly ramping of timestep.
