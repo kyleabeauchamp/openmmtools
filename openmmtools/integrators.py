@@ -564,7 +564,7 @@ class GHMCIntegratorOneStep(simtk.openmm.CustomIntegrator):
         gamma = collision_rate
 
         # Create a new custom integrator.
-        super(GHMCIntegrator, self).__init__(timestep)
+        super(GHMCIntegratorOneStep, self).__init__(timestep)
 
         #
         # Integrator initialization.
