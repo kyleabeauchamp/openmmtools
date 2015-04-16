@@ -12,7 +12,9 @@ from .constants import kB
 #=============================================================================================
 
 def guess_force_groups(system, nonbonded=1, fft=1, others=0):
-    """Set NB short-range to 1 and long-range to 1, which is usually OK."""
+    """Set NB short-range to 1 and long-range to 1, which is usually OK.
+    This is useful for RESPA multiple timestep integrators.
+    """
     for force in system.getForces():
         if isinstance(force, mm.openmm.NonbondedForce):
             force.setForceGroup(nonbonded)
@@ -21,24 +23,28 @@ def guess_force_groups(system, nonbonded=1, fft=1, others=0):
             force.setForceGroup(others)
 
 
-class GHMC2(mm.CustomIntegrator):
+class GHMCIntegrator(mm.CustomIntegrator):
     """Generalized hybrid Monte Carlo (GHMC) integrator.
     
     Notes
     -----
-    This follows the definition of GHMC given in "Extra Chance Generalized
-    Hamiltonian Monte Carlo".  Specifically, the velocities are corrupted,
-    steps_per_hmc steps of hamiltonian dynamics are performed, and then 
+    This loosely follows the definition of GHMC given in the two below
+    references.  Specifically, the velocities are corrupted,
+    several steps of hamiltonian dynamics are performed, and then 
     an accept / reject move is taken.  
     
     This class is the base class for a number of more specialized versions
     of GHMC.
     
+    References
+    ----------
+    C. M. Campos, J. M. Sanz-Serna, J. Comp. Phys. 281, (2015) 
+    J. Sohl-Dickstein, M. Mudigonda, M. DeWeese.  ICML (2014)
+    
     """
 
     def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=1.0 / u.picoseconds):
-        """Create a generalized hybrid Monte Carlo (GHMC) integrator.
-
+        """
         Parameters
         ----------
         temperature : numpy.unit.Quantity compatible with kelvin, default: 298*simtk.unit.kelvin
@@ -157,7 +163,7 @@ class GHMC2(mm.CustomIntegrator):
 
     def add_hmc_iterations(self):
         """Add self.steps_per_hmc iterations of symplectic hamiltonian dynamics."""
-        print("Adding GHMC2 steps.")
+        print("Adding GHMCIntegrator steps.")
         for step in range(self.steps_per_hmc):
             self.addComputePerDof("v", "v+0.5*dt*f/m")
             self.addComputePerDof("x", "x+dt*v")
@@ -230,13 +236,28 @@ class GHMC2(mm.CustomIntegrator):
 
 
 
-class RampedHMCIntegrator(GHMC2):
-    """Hybrid Monte Carlo (HMC) integrator with linearly ramped non-uniform timesteps.
+class RampedGHMCIntegrator(GHMCIntegrator):
+    """Generalized hybrid Monte Carlo (GHMC) integrator with linearly ramped
+    timesteps, which can in some cases lead to improvements in acceptance rate
+    as suggested in reference (3) below.  
+    
+    Notes
+    -----
+    This loosely follows the definition of GHMC given in the two below
+    references.  Specifically, the velocities are corrupted,
+    several steps of hamiltonian dynamics are performed, and then 
+    an accept / reject move is taken.  
+    
+    References
+    ----------
+    C. M. Campos, J. M. Sanz-Serna, J. Comp. Phys. 281, (2015) 
+    J. Sohl-Dickstein, M. Mudigonda, M. DeWeese.  ICML (2014)
+    C. Holzgräfe, A. Bhattacherjee and Anders Irbäck.  J. Chem. Phys (2014)
     """
 
-    def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=91.0/u.picoseconds, max_boost=0.0):
-        """Create a hybrid Monte Carlo (HMC) integrator with linearly ramped non-uniform timesteps.
 
+    def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=91.0/u.picoseconds, max_boost=0.0):
+        """
         Parameters
         ----------
         temperature : numpy.unit.Quantity compatible with kelvin, default: 298*simtk.unit.kelvin
@@ -291,8 +312,20 @@ class RampedHMCIntegrator(GHMC2):
             self.addConstrainVelocities()
 
 
-class XHMCIntegrator(GHMC2):
-    """Extra Chance Generalized Hamiltonian Monte Carlo."""
+class XHMCIntegrator(GHMCIntegrator):
+    """Extra Chance Generalized hybrid Monte Carlo (XCGHMC) integrator.
+    
+    Notes
+    -----
+    This integrator attempts to circumvent rejections by propagating
+    additional dynamics and performing a second metropolization step.  
+    
+    References
+    ----------
+    C. M. Campos, J. M. Sanz-Serna, J. Comp. Phys. 281, (2015) 
+    J. Sohl-Dickstein, M. Mudigonda, M. DeWeese.  ICML (2014)
+    
+    """
     def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=1.0 / u.picoseconds, k_max=2):
         """CURRENTLY BROKEN!!!!!
         """
@@ -428,12 +461,29 @@ class XHMCIntegrator(GHMC2):
         return d
 
 
-class GHMCRESPA(GHMC2):
-    """Hybrid Monte Carlo (HMC) integrator with linearly ramped non-uniform timesteps.
+class GHMCRESPA(GHMCIntegrator):
+    """Generalized Hamiltonian Monte Carlo (GHMC) RESPA multiple timestep
+    integrator.
+    
+    Notes
+    -----
+    This loosely follows the definition of GHMC given in the two below
+    references.  Specifically, the velocities are corrupted,
+    several steps of hamiltonian dynamics are performed, and then 
+    an accept / reject move is taken.  
+    
+    The RESPA multiple timestep splitting should closely follow the code
+    in MTSIntegrator.
+    
+    References
+    ----------
+    C. M. Campos, J. M. Sanz-Serna, J. Comp. Phys. 281, (2015) 
+    J. Sohl-Dickstein, M. Mudigonda, M. DeWeese.  ICML (2014)    
+    
     """
 
     def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=1.0/u.picoseconds, groups=None):
-        """Create a hybrid Monte Carlo (HMC) integrator with linearly ramped non-uniform timesteps.
+        """Create a generalized hamiltonian Monte Carlo (HMC) integrator with linearly ramped non-uniform timesteps.
 
         Parameters
         ----------

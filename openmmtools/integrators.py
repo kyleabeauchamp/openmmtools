@@ -510,10 +510,11 @@ class HMCIntegrator(simtk.openmm.CustomIntegrator):
         return self.n_accept / float(self.n_trials)
 
 
-class GHMCIntegrator(simtk.openmm.CustomIntegrator):
-    """
-    Generalized hybrid Monte Carlo (GHMC) integrator.
-
+class GHMCIntegratorOneStep(simtk.openmm.CustomIntegrator):
+    """Generalized hybrid Monte Carlo (GHMC) integrator.
+    
+    This is nearly identical to GHMCIntegrator in `ghmc_integrators.py` 
+    when steps_per_hmc=1.  
     """
 
     def __init__(self, temperature=298.0*simtk.unit.kelvin, collision_rate=91.0/simtk.unit.picoseconds, timestep=1.0*simtk.unit.femtoseconds):
