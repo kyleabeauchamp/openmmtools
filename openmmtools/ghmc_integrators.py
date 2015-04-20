@@ -416,7 +416,7 @@ class XHMCIntegrator(GHMCIntegrator):
         self.addComputeGlobal("r", "exp(-(Enew - Eold) / kT)")
         #self.addComputeGlobal("mu", "min(1, r)")  # XCHMC paper version
         #self.addComputeGlobal("mu1", "max(mu1, mu)")
-        self.addComputeGlobal("mu", "min(1, r) * mu1")  # LAHMC paper version, eqn. 25
+        self.addComputeGlobal("mu", "min(1, r) * (1 - mu1)")  # LAHMC paper version, eqn. 25
         self.addComputeGlobal("mu1", "mu")
         
         self.addComputeGlobal("a", "step(mu1 - uni)")
