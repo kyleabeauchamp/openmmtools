@@ -219,7 +219,7 @@ class GHMCIntegrator(mm.CustomIntegrator):
         Append self.summary() to a list and print out as a dataframe.
         """
         d = {}
-        d["acceptance_rate"] = self.acceptance_rate
+        d["arate"] = self.acceptance_rate
         d["effective_timestep"] = self.effective_timestep / u.femtoseconds
         d["effective_ns_per_day"] = self.effective_ns_per_day
         d["ns_per_day"] = self.ns_per_day
@@ -451,8 +451,8 @@ class XHMCIntegrator(GHMCIntegrator):
         Append self.summary() to a list and print out as a dataframe.
         """
         d = {}
-        d["acceptance_rate"] = self.acceptance_rate
-        keys = ["a", "s", "l", "rho", "ke", "Enew", "Unew", "mu", "mu1", "flip", "kold", "k", "naccept", "nflip", "ntrials", "nrounds", "Eold", "Uold"]
+        d["arate"] = self.acceptance_rate
+        keys = ["a", "s", "l", "rho", "ke", "Enew", "Unew", "mu", "mu1", "flip", "kold", "k", "naccept", "nflip", "ntrials", "nrounds", "Eold", "Uold", "uni"]
         for key in keys:
             d[key] = self.getGlobalVariableByName(key)
         
