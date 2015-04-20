@@ -404,7 +404,8 @@ class XHMCIntegrator(GHMCIntegrator):
         self.addComputePerDof("vold", "s * v + (1 - s) * vold")
         
         self.addComputeGlobal("mu1", "mu1 * (1 - s)")
-        self.addComputeGlobal("uni", "(1 - s) * uni + uniform * s")
+        #self.addComputeGlobal("uni", "(1 - s) * uni + uniform * s")  # XCHMC paper version, only draw uniform once
+        self.addComputeGlobal("uni", "uniform")  # LAHMC paper version, draw uniform each step, eqn 25.
 
     def add_accept_or_reject_step(self):
         self.addComputeSum("ke", "0.5*m*v*v")
@@ -412,8 +413,11 @@ class XHMCIntegrator(GHMCIntegrator):
 
         self.addComputeGlobal("Unew", "energy")
         self.addComputeGlobal("r", "exp(-(Enew - Eold) / kT)")
-        self.addComputeGlobal("mu", "min(1, r)")
-        self.addComputeGlobal("mu1", "max(mu1, mu)")
+        #self.addComputeGlobal("mu", "min(1, r)")  # XCHMC paper version
+        #self.addComputeGlobal("mu1", "max(mu1, mu)")
+        self.addComputeGlobal("mu", "min(1, r) * mu1")  # LAHMC paper version, eqn. 25
+        self.addComputeGlobal("mu1", "mu")
+        
         self.addComputeGlobal("a", "step(mu1 - uni)")
 
         self.addComputeGlobal("flip", "(1 - a) * l")  # Flip is True ONLY on rejection at last cycle
