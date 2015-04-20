@@ -354,8 +354,8 @@ class XHMCIntegrator(GHMCIntegrator):
         
         self.addGlobalVariable("rho", 0.0)  # temporary variables for acceptance criterion
         self.addGlobalVariable("mu", 0.0)  # 
-        self.addGlobalVariable("mu1", 0.0)  # 
-        self.addGlobalVariable("mu10", 1.0) # Previous value of mu1
+        self.addGlobalVariable("mu1", 0.0)  # XCHMC Fig. 3 O1
+        #self.addGlobalVariable("mu10", 1.0) # Previous value of mu1
         self.addGlobalVariable("Uold", 0.0)
         self.addGlobalVariable("Unew", 0.0)
         self.addGlobalVariable("uni", 0.0)  # Uniform random variable generated once per round of XHMC
@@ -403,8 +403,8 @@ class XHMCIntegrator(GHMCIntegrator):
         self.addComputePerDof("xold", "s * x + (1 - s) * xold")
         self.addComputePerDof("vold", "s * v + (1 - s) * vold")
         
-        #self.addComputeGlobal("mu1", "mu1 * (1 - s)")  # LAHMC
-        self.addComputeGlobal("mu1", "s + mu1 * (1 - s)")  # XCHMC
+        self.addComputeGlobal("mu1", "mu1 * (1 - s)")  # XCHMC Fig. 3 O1
+        #self.addComputeGlobal("mu1", "s + mu1 * (1 - s)")  # LAHMC
         #self.addComputeGlobal("uni", "(1 - s) * uni + uniform * s")  # XCHMC paper version, only draw uniform once
         self.addComputeGlobal("uni", "uniform")  # LAHMC paper version, draw uniform each step, eqn 25.
 
@@ -414,10 +414,10 @@ class XHMCIntegrator(GHMCIntegrator):
 
         self.addComputeGlobal("Unew", "energy")
         self.addComputeGlobal("r", "exp(-(Enew - Eold) / kT)")
-        #self.addComputeGlobal("mu", "min(1, r)")  # XCHMC paper version
-        #self.addComputeGlobal("mu1", "max(mu1, mu)")
-        self.addComputeGlobal("mu", "min(1, r) * (1 - mu1)")  # LAHMC paper version, eqn. 25
-        self.addComputeGlobal("mu1", "mu")
+        self.addComputeGlobal("mu", "min(1, r)")  # XCHMC paper version
+        self.addComputeGlobal("mu1", "max(mu1, mu)")
+        #self.addComputeGlobal("mu", "min(1, r) * (1 - mu1)")  # LAHMC paper version, eqn. 25
+        #self.addComputeGlobal("mu1", "mu")
         
         self.addComputeGlobal("a", "step(mu1 - uni)")
 
