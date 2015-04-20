@@ -403,7 +403,8 @@ class XHMCIntegrator(GHMCIntegrator):
         self.addComputePerDof("xold", "s * x + (1 - s) * xold")
         self.addComputePerDof("vold", "s * v + (1 - s) * vold")
         
-        self.addComputeGlobal("mu1", "mu1 * (1 - s)")
+        #self.addComputeGlobal("mu1", "mu1 * (1 - s)")  # LAHMC
+        self.addComputeGlobal("mu1", "s + mu1 * (1 - s)")  # XCHMC
         #self.addComputeGlobal("uni", "(1 - s) * uni + uniform * s")  # XCHMC paper version, only draw uniform once
         self.addComputeGlobal("uni", "uniform")  # LAHMC paper version, draw uniform each step, eqn 25.
 
