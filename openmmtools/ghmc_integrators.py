@@ -533,7 +533,7 @@ class XHMCRESPAIntegrator(GHMCRESPA, XHMCIntegrator):
     """Extra Chance Generalized hybrid Monte Carlo RESPA integrator.    
     """
     def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=1.0 / u.picoseconds, k_max=2, groups=None):
-        """CURRENTLY BROKEN!!!!!
+        """
         """
         mm.CustomIntegrator.__init__(self, timestep)
 
