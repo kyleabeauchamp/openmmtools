@@ -11,7 +11,7 @@ from .constants import kB
 # INTEGRATORS
 #=============================================================================================
 
-def guess_force_groups(system, nonbonded=1, fft=1, others=0):
+def guess_force_groups(system, nonbonded=1, fft=1, others=0, multipole=1):
     """Set NB short-range to 1 and long-range to 1, which is usually OK.
     This is useful for RESPA multiple timestep integrators.
     """
@@ -19,6 +19,10 @@ def guess_force_groups(system, nonbonded=1, fft=1, others=0):
         if isinstance(force, mm.openmm.NonbondedForce):
             force.setForceGroup(nonbonded)
             force.setReciprocalSpaceForceGroup(fft)
+        elif isinstance(force, mm.AmoebaMultipoleForce):
+            force.setForceGroup(multipole)
+        elif isinstance(force, mm.AmoebaVdwForce):
+            force.setForceGroup(nonbonded)            
         else:
             force.setForceGroup(others)
 
