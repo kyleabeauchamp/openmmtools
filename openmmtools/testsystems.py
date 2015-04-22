@@ -2495,6 +2495,9 @@ class AlanineDipeptideExplicit(TestSystem):
         If True, the long-range disperson correction will be used.
     nonbondedMethod : simtk.openmm.app nonbonded method, optional, default=app.PME
        Sets the nonbonded method to use for the water box (one of app.CutoffPeriodic, app.Ewald, app.PME).
+    hydrogenMass : unit, optional, default=None
+        If set, will pass along a modified hydrogen mass for OpenMM to 
+        use mass repartitioning.
 
     Examples
     --------
@@ -2548,12 +2551,9 @@ class DHFRExplicit(TestSystem):
         If True, the long-range disperson correction will be used.
     nonbondedMethod : simtk.openmm.app nonbonded method, optional, default=app.PME
        Sets the nonbonded method to use for the water box (one of app.CutoffPeriodic, app.Ewald, app.PME).
-
-    Examples
-    --------
-
-    >>> alanine = AlanineDipeptideExplicit()
-    >>> (system, positions) = alanine.system, alanine.positions
+    hydrogenMass : unit, optional, default=None
+        If set, will pass along a modified hydrogen mass for OpenMM to 
+        use mass repartitioning.       
     """
 
     def __init__(self, constraints=app.HBonds, rigid_water=True, nonbondedCutoff=8.0 * unit.angstroms, use_dispersion_correction=True, nonbondedMethod=app.PME, hydrogenMass=None, **kwargs):
@@ -2563,7 +2563,7 @@ class DHFRExplicit(TestSystem):
         try:
             import chemistry
             from chemistry.amber.openmmloader import AmberParm
-        except IOError as e:
+        except ImportError as e:
             print("DHFR test system requires Parmed (`import chemistry`).")
             raise(e)
 
