@@ -104,6 +104,10 @@ class GHMCIntegrator(mm.CustomIntegrator):
     def ns_per_day(self):
         return (self.timestep / self.days_per_step) / u.nanoseconds
 
+    @property
+    def accept_factor(self):
+        return np.exp(-(self.getGlobalVariableByName("Enew") - self.getGlobalVariableByName("Eold")) / self.getGlobalVariableByName("kT"))
+
     def vstep(self, n_steps, verbose=False):
         """Do n_steps of dynamics and return a summary dataframe."""
 
@@ -223,6 +227,7 @@ class GHMCIntegrator(mm.CustomIntegrator):
         d["effective_timestep"] = self.effective_timestep / u.femtoseconds
         d["effective_ns_per_day"] = self.effective_ns_per_day
         d["ns_per_day"] = self.ns_per_day
+        d["r"] = self.accept_factor
         keys = ["accept", "ke", "Enew", "naccept", "ntrials", "Eold"]
         
         for key in keys:
@@ -377,7 +382,17 @@ class XHMCIntegrator(GHMCIntegrator):
         self.addGlobalVariable("Enew", 0) # new energy
         #self.addGlobalVariable("accept", 0) # DEFINED ABOVE
         self.addPerDofVariable("x1", 0) # for constraints
-        self.addGlobalVariable("b", self.b) # velocity mixing parameter                
+        self.addGlobalVariable("b", self.b) # velocity mixing parameter
+        
+        self.addGlobalVariable("ke0", 0)
+        self.addGlobalVariable("ke1", 0)
+        self.addGlobalVariable("ke2", 0)
+        self.addGlobalVariable("ke3", 0)
+
+        self.addGlobalVariable("pe0", 0)
+        self.addGlobalVariable("pe1", 0)
+        self.addGlobalVariable("pe2", 0)
+        self.addGlobalVariable("pe3", 0)
 
         self.addComputePerDof("sigma", "sqrt(kT/m)")
         self.addUpdateContextState()
@@ -385,15 +400,18 @@ class XHMCIntegrator(GHMCIntegrator):
     def add_draw_velocities_step(self):
         """Draw perturbed velocities."""
         self.addComputeGlobal("s", "step(-k)")  # True only on first step of XHMC round
-        self.addComputeGlobal("nrounds", "nrounds + s")  # True only on first step of XHMC round
+        self.addComputeGlobal("nrounds", "nrounds + s")
         self.addComputeGlobal("l", "step(k - k_max)")  # True only only last step of XHMC round
 
         self.addUpdateContextState()
         self.addConstrainPositions()
 
-        self.addComputePerDof("v", "s * (sqrt(b) * v + (1 - s) * sqrt(1 - b) * sigma * gaussian) + (1 - s) * v")
-        self.addConstrainVelocities()
+        self.addComputeSum("ke0", "0.5*m*v*v")
+        self.addComputeGlobal("pe0", "energy")
 
+        self.addComputePerDof("v", "s * (sqrt(b) * v + sqrt(1 - b) * sigma * gaussian) + (1 - s) * v")
+        self.addConstrainVelocities()
+        
     def add_cache_variables_step(self):
         """Store old positions and energies."""
 
@@ -404,27 +422,46 @@ class XHMCIntegrator(GHMCIntegrator):
         self.addComputePerDof("vold", "s * v + (1 - s) * vold")
         
         self.addComputeGlobal("mu1", "mu1 * (1 - s)")  # XCHMC Fig. 3 O1
-        #self.addComputeGlobal("mu1", "s + mu1 * (1 - s)")  # LAHMC
-        #self.addComputeGlobal("uni", "(1 - s) * uni + uniform * s")  # XCHMC paper version, only draw uniform once
-        self.addComputeGlobal("uni", "uniform")  # LAHMC paper version, draw uniform each step, eqn 25.
+        self.addComputeGlobal("uni", "(1 - s) * uni + uniform * s")  # XCHMC paper version, only draw uniform once
+
+    def add_hmc_iterations(self):
+        """Add self.steps_per_hmc iterations of symplectic hamiltonian dynamics."""
+
+        self.addComputeSum("ke1", "0.5*m*v*v")
+        self.addComputeGlobal("pe1", "energy")
+        
+        print("Adding XHMCIntegrator steps.")
+        for step in range(self.steps_per_hmc):
+            self.addComputePerDof("v", "v+0.5*dt*f/m")
+            self.addComputePerDof("x", "x+dt*v")
+            self.addComputePerDof("x1", "x")
+            self.addConstrainPositions()
+            self.addComputePerDof("v", "v+0.5*dt*f/m+(x-x1)/dt")
+            self.addConstrainVelocities()
+
 
     def add_accept_or_reject_step(self):
         self.addComputeSum("ke", "0.5*m*v*v")
         self.addComputeGlobal("Enew", "ke + energy")
 
+        self.addComputeGlobal("pe2", "energy")
+        self.addComputeSum("ke2", "0.5*m*v*v")
+
         self.addComputeGlobal("Unew", "energy")
         self.addComputeGlobal("r", "exp(-(Enew - Eold) / kT)")
         self.addComputeGlobal("mu", "min(1, r)")  # XCHMC paper version
         self.addComputeGlobal("mu1", "max(mu1, mu)")
-        #self.addComputeGlobal("mu", "min(1, r) * (1 - mu1)")  # LAHMC paper version, eqn. 25
-        #self.addComputeGlobal("mu1", "mu")
+
         
         self.addComputeGlobal("a", "step(mu1 - uni)")
 
         self.addComputeGlobal("flip", "(1 - a) * l")  # Flip is True ONLY on rejection at last cycle
         
-        self.addComputePerDof("x", "x * a + xold * (1 - a)")
+        self.addComputePerDof("x", "x * (1 - flip) + xold * flip")
         self.addComputePerDof("v", "v * (1 - flip) - vold * flip")  # Conserve velocities except on flips.
+        
+        self.addComputeGlobal("pe3", "energy")
+        self.addComputeSum("ke3", "0.5*m*v*v")
         
         self.addComputeGlobal("kold", "k")  # Store the previous value of k for debugging purposes
         self.addComputeGlobal("k", "(k + 1) * (1 - flip) * (1 - a)")  # Increment by one ONLY if not flipping momenta or accepting, otherwise set to zero        
@@ -458,10 +495,14 @@ class XHMCIntegrator(GHMCIntegrator):
         d = {}
         d["arate"] = self.acceptance_rate
         keys = ["a", "s", "l", "rho", "ke", "Enew", "Unew", "mu", "mu1", "flip", "kold", "k", "naccept", "nflip", "ntrials", "nrounds", "Eold", "Uold", "uni"]
+        #keys.extend(["ke0", "ke1", "ke2", "ke3", "pe0", "pe1", "pe2", "pe3"])
         for key in keys:
             d[key] = self.getGlobalVariableByName(key)
         
         d["deltaE"] = d["Enew"] - d["Eold"]
+        #for i in range(4):
+        #    d["T%d" % i] = d["pe%d" % i] + d["ke%d" % i]
+        #d["dE"] = (d["ke1"] + d["pe1"]) - (d["ke2"] + d["pe2"])
         
         return d
 
