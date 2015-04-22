@@ -169,12 +169,7 @@ class GHMCIntegrator(mm.CustomIntegrator):
         """Add self.steps_per_hmc iterations of symplectic hamiltonian dynamics."""
         print("Adding GHMCIntegrator steps.")
         for step in range(self.steps_per_hmc):
-            self.addComputePerDof("v", "v+0.5*dt*f/m")
-            self.addComputePerDof("x", "x+dt*v")
-            self.addComputePerDof("x1", "x")
-            self.addConstrainPositions()
-            self.addComputePerDof("v", "v+0.5*dt*f/m+(x-x1)/dt")
-            self.addConstrainVelocities()
+            self.add_hamiltonian_step()
 
     def add_accept_or_reject_step(self):
         self.addComputeSum("ke", "0.5*m*v*v")
@@ -186,6 +181,22 @@ class GHMCIntegrator(mm.CustomIntegrator):
     def add_accumulate_statistics_step(self):
         self.addComputeGlobal("naccept", "naccept + accept")
         self.addComputeGlobal("ntrials", "ntrials + 1")
+
+    def add_hamiltonian_step(self):
+        """Add a single step of hamiltonian integration.
+        
+        Notes
+        -----
+        This function will be overwritten in RESPA subclasses!
+        """
+        print("Adding step of hamiltonian dynamics.""")
+        self.addComputePerDof("v", "v+0.5*dt*f/m")
+        self.addComputePerDof("x", "x+dt*v")
+        self.addComputePerDof("x1", "x")
+        self.addConstrainPositions()
+        self.addComputePerDof("v", "v+0.5*dt*f/m+(x-x1)/dt")
+        self.addConstrainVelocities()
+        
 
     @property
     def kT(self):
@@ -252,7 +263,7 @@ class XHMCIntegrator(GHMCIntegrator):
     J. Sohl-Dickstein, M. Mudigonda, M. DeWeese.  ICML (2014)
     
     """
-    def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=1.0 / u.picoseconds, k_max=2):
+    def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=1.0 / u.picoseconds, extra_chances=2):
         """CURRENTLY BROKEN!!!!!
         """
         mm.CustomIntegrator.__init__(self, timestep)
@@ -261,7 +272,7 @@ class XHMCIntegrator(GHMCIntegrator):
         self.steps_per_hmc = steps_per_hmc
         self.collision_rate = collision_rate        
         self.timestep = timestep
-        self.k_max = k_max
+        self.extra_chances = extra_chances
         
         self.create()
 
@@ -273,7 +284,7 @@ class XHMCIntegrator(GHMCIntegrator):
         self.addGlobalVariable("l", 0.0)
         self.addGlobalVariable("r", 0.0) # Metropolis ratio: ratio probabilities
 
-        self.addGlobalVariable("k_max", self.k_max)  # Maximum number of rounds of dynamics
+        self.addGlobalVariable("extra_chances", self.extra_chances)  # Maximum number of rounds of dynamics
         self.addGlobalVariable("k", 0)  # Current number of rounds of dynamics
         self.addGlobalVariable("kold", 0)  # Previous value of k stored for debugging purposes
         self.addGlobalVariable("flip", 0.0)  # Indicator variable whether this iteration was a flip
@@ -322,7 +333,7 @@ class XHMCIntegrator(GHMCIntegrator):
         """Draw perturbed velocities."""
         self.addComputeGlobal("s", "step(-k)")  # True only on first step of XHMC round
         self.addComputeGlobal("nrounds", "nrounds + s")
-        self.addComputeGlobal("l", "step(k - k_max)")  # True only only last step of XHMC round
+        self.addComputeGlobal("l", "step(k - extra_chances)")  # True only only last step of XHMC round
 
         self.addUpdateContextState()
         self.addConstrainPositions()
@@ -492,13 +503,16 @@ class GHMCRESPA(GHMCIntegrator):
         
         self.create()
 
-
-    def add_hmc_iterations(self):
-        """Add self.steps_per_hmc iterations of symplectic hamiltonian dynamics."""
-        print("Adding GHMC RESPA steps.")
-        for step in range(self.steps_per_hmc):
-            self._create_substeps(1, self.groups)
-            self.addConstrainVelocities()
+    def add_hamiltonian_step(self):
+        """Add a single step of hamiltonian integration.
+        
+        Notes
+        -----
+        This function will be overwritten in RESPA subclasses!
+        """
+        print("Adding step of RESPA hamiltonian dynamics.""")
+        self._create_substeps(1, self.groups)
+        self.addConstrainVelocities()
 
     def _create_substeps(self, parentSubsteps, groups):
         
@@ -532,7 +546,7 @@ class GHMCRESPA(GHMCIntegrator):
 class XHMCRESPAIntegrator(GHMCRESPA, XHMCIntegrator):
     """Extra Chance Generalized hybrid Monte Carlo RESPA integrator.    
     """
-    def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=1.0 / u.picoseconds, k_max=2, groups=None):
+    def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=1.0 / u.picoseconds, extra_chances=2, groups=None):
         """
         """
         mm.CustomIntegrator.__init__(self, timestep)
@@ -547,6 +561,6 @@ class XHMCRESPAIntegrator(GHMCRESPA, XHMCIntegrator):
         self.steps_per_hmc = steps_per_hmc
         self.collision_rate = collision_rate        
         self.timestep = timestep
-        self.k_max = k_max
+        self.extra_chances = extra_chances
         
         self.create()
