@@ -424,22 +424,6 @@ class XHMCIntegrator(GHMCIntegrator):
         self.addComputeGlobal("mu1", "mu1 * (1 - s)")  # XCHMC Fig. 3 O1
         self.addComputeGlobal("uni", "(1 - s) * uni + uniform * s")  # XCHMC paper version, only draw uniform once
 
-    def add_hmc_iterations(self):
-        """Add self.steps_per_hmc iterations of symplectic hamiltonian dynamics."""
-
-        self.addComputeSum("ke1", "0.5*m*v*v")
-        self.addComputeGlobal("pe1", "energy")
-        
-        print("Adding XHMCIntegrator steps.")
-        for step in range(self.steps_per_hmc):
-            self.addComputePerDof("v", "v+0.5*dt*f/m")
-            self.addComputePerDof("x", "x+dt*v")
-            self.addComputePerDof("x1", "x")
-            self.addConstrainPositions()
-            self.addComputePerDof("v", "v+0.5*dt*f/m+(x-x1)/dt")
-            self.addConstrainVelocities()
-
-
     def add_accept_or_reject_step(self):
         self.addComputeSum("ke", "0.5*m*v*v")
         self.addComputeGlobal("Enew", "ke + energy")
@@ -486,6 +470,11 @@ class XHMCIntegrator(GHMCIntegrator):
     def acceptance_rate(self):
         """The acceptance rate:"""
         return 1.0 - self.n_flip / float(self.n_rounds)
+
+    @property
+    def fraction_accepted(self):
+        """The acceptance rate:"""
+        return 1.0 - self.n_flip * self.steps_per_hmc / float(self.n_trials)
 
     @property
     def summary(self):
@@ -616,3 +605,27 @@ class GHMCRESPA(GHMCIntegrator):
             else:
                 self._create_substeps(substeps, groups[1:])
             self.addComputePerDof("v", "v+0.5*(dt/%s)*f%s/m" % (str_sub, str_group))
+
+
+
+class XHMCRESPAIntegrator(GHMCRESPA, XHMCIntegrator):
+    """Extra Chance Generalized hybrid Monte Carlo RESPA integrator.    
+    """
+    def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=1.0 / u.picoseconds, k_max=2, groups=None):
+        """CURRENTLY BROKEN!!!!!
+        """
+        mm.CustomIntegrator.__init__(self, timestep)
+
+        if len(groups) == 0:
+            raise ValueError("No force groups specified")
+        
+        self.groups = sorted(groups, key=lambda x: x[1])
+
+        
+        self.temperature = temperature
+        self.steps_per_hmc = steps_per_hmc
+        self.collision_rate = collision_rate        
+        self.timestep = timestep
+        self.k_max = k_max
+        
+        self.create()
