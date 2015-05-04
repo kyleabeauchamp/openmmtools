@@ -267,9 +267,11 @@ class XHMCIntegrator(GHMCIntegrator):
     J. Sohl-Dickstein, M. Mudigonda, M. DeWeese.  ICML (2014)
     
     """
-    def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=1.0 / u.picoseconds, extra_chances=2):
+    def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=1.0 / u.picoseconds, extra_chances=2, take_debug_steps=False):
         """CURRENTLY BROKEN!!!!!
         """
+        self.take_debug_steps = take_debug_steps
+        
         mm.CustomIntegrator.__init__(self, timestep)
         
         self.temperature = temperature
@@ -403,8 +405,15 @@ class XHMCIntegrator(GHMCIntegrator):
 
     @property
     def acceptance_rate(self):
-        """The acceptance rate, in terms of number of force evaluations."""
-        return 1.0 - self.n_flip * self.steps_per_hmc / float(self.n_trials)
+        """The acceptance rate, in terms of number of force evaluations.
+        
+        Notes
+        -----
+        Each completed "round" of XHMC dynamics involves extra_chances + 1
+        force evaluations.  That is, even with zero extra chances there
+        is still a single force evaluation.
+        """
+        return 1.0 - self.n_flip * (1.0 + self.extra_chances) / float(self.n_trials)
 
     @property
     def round_acceptance_rate(self):
@@ -430,6 +439,21 @@ class XHMCIntegrator(GHMCIntegrator):
         #d["dE"] = (d["ke1"] + d["pe1"]) - (d["ke2"] + d["pe2"])
         
         return d
+    
+    @property
+    def k(self):
+        return self.getGlobalVariableByName("k")        
+
+    def step(self, n_steps):
+        if self.take_debug_steps:
+            super(XHMCIntegrator, self).step(n_steps)
+        else:
+            for i in range(n_steps):
+                while True:
+                    super(XHMCIntegrator, self).step(1)
+                    if self.k == 0:
+                        break
+            
 
 
 class GHMCRESPA(GHMCIntegrator):
