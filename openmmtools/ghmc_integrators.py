@@ -253,7 +253,7 @@ class GHMCIntegrator(mm.CustomIntegrator):
         return d
 
 
-class XHMCIntegrator(GHMCIntegrator):
+class XCGHMCIntegrator(GHMCIntegrator):
     """Extra Chance Generalized hybrid Monte Carlo (XCGHMC) integrator.
     
     Notes
@@ -571,7 +571,7 @@ class GHMCRESPA(GHMCIntegrator):
 
 
 
-class XHMCRESPAIntegrator(GHMCRESPA, XHMCIntegrator):
+class XCGHMCRESPAIntegrator(GHMCRESPA, XCGHMCIntegrator):
     """Extra Chance Generalized hybrid Monte Carlo RESPA integrator.    
     """
     def __init__(self, temperature=298.0*u.kelvin, steps_per_hmc=10, timestep=1*u.femtoseconds, collision_rate=1.0 / u.picoseconds, extra_chances=2, groups=None):
