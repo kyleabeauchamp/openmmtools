@@ -377,7 +377,7 @@ class MetropolisMonteCarloIntegrator(simtk.openmm.CustomIntegrator):
         self.addComputeGlobal("naccept", "naccept + accept")
         self.addComputeGlobal("ntrials", "ntrials + 1")
 
-class HMCIntegrator(simtk.openmm.CustomIntegrator):
+class OldHMCIntegrator(simtk.openmm.CustomIntegrator):
     """
     Hybrid Monte Carlo (HMC) integrator.
 
