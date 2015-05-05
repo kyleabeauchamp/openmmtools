@@ -7,9 +7,6 @@ import simtk.unit as u
 import simtk.openmm as mm
 from .constants import kB
 
-#=============================================================================================
-# INTEGRATORS
-#=============================================================================================
 
 def guess_force_groups(system, nonbonded=1, fft=1, others=0, multipole=1):
     """Set NB short-range to 1 and long-range to 1, which is usually OK.
