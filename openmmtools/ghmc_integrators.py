@@ -261,8 +261,8 @@ class HMCIntegrator(HMCBase):
         self.addComputeSum("ke", "0.5*m*v*v")
         self.addComputeGlobal("Enew", "ke + energy")
         self.addComputeGlobal("accept", "step(exp(-(Enew-Eold)/kT) - uniform)")
-        self.addComputePerDof("x", "x*accept + xold*(1-accept)")
-        #self.addComputePerDof("x", "select(accept, x, xold)")
+        #self.addComputePerDof("x", "x*accept + xold*(1-accept)")  # Unstable if NANs present.
+        self.addComputePerDof("x", "select(accept, x, xold)")  # Requires OMM Build on May 6, 2015
 
 
 class GHMCIntegrator(HMCBase):
@@ -344,8 +344,12 @@ class GHMCIntegrator(HMCBase):
         self.addComputeSum("ke", "0.5*m*v*v")
         self.addComputeGlobal("Enew", "ke + energy")
         self.addComputeGlobal("accept", "step(exp(-(Enew-Eold)/kT) - uniform)")
-        self.addComputePerDof("x", "x*accept + xold*(1-accept)")
-        self.addComputePerDof("v", "v*accept - vold*(1-accept)")  # Notice the minus sign: momentum flip        
+        
+        #self.addComputePerDof("x", "x*accept + xold*(1-accept)")
+        #self.addComputePerDof("v", "v*accept - vold*(1-accept)")  # Notice the minus sign: momentum flip        
+        
+        self.addComputePerDof("x", "select(accept, x, xold)")  # Requires OMM Build on May 6, 2015
+        self.addComputePerDof("v", "select(accept, v, -1*vold)")  # Requires OMM Build on May 6, 2015
 
     @property
     def b(self):
@@ -510,7 +514,9 @@ class XCHMCIntegrator(XCMixin, HMCIntegrator):
         self.addComputeSum("ke", "0.5*m*v*v")
         self.addComputeGlobal("Eold", "s * (ke + energy) + (1 - s) * Eold")
         self.addComputeGlobal("Uold", "energy")  # Not strictly necessary, used for debugging
-        self.addComputePerDof("xold", "s * x + (1 - s) * xold")
+        #self.addComputePerDof("xold", "s * x + (1 - s) * xold")
+        self.addComputePerDof("xold", "select(s, x, xold)")  # Requires OMM Build on May 6, 2015
+        
         
         self.addComputeGlobal("mu1", "mu1 * (1 - s)")  # XCHMC Fig. 3 O1
         self.addComputeGlobal("uni", "(1 - s) * uni + uniform * s")  # XCHMC paper version, only draw uniform once
@@ -530,7 +536,9 @@ class XCHMCIntegrator(XCMixin, HMCIntegrator):
 
         self.addComputeGlobal("flip", "(1 - a) * l")  # Flip is True ONLY on rejection at last cycle
         
-        self.addComputePerDof("x", "x * (1 - flip) + xold * flip")
+        #self.addComputePerDof("x", "x * (1 - flip) + xold * flip")
+        self.addComputePerDof("x", "select(flip, xold, x)")  # Requires OMM Build on May 6, 2015
+        
 
         self.addComputeGlobal("kold", "k")  # Store the previous value of k for debugging purposes
         self.addComputeGlobal("k", "(k + 1) * (1 - flip) * (1 - a)")  # Increment by one ONLY if not flipping momenta or accepting, otherwise set to zero        
@@ -544,6 +552,7 @@ class XCHMCIntegrator(XCMixin, HMCIntegrator):
                     super(XCHMCIntegrator, self).step(1)
                     if self.k == 0:
                         break
+
 
 class XCGHMCIntegrator(XCMixin, GHMCIntegrator):
     """Extra Chance Generalized hybrid Monte Carlo (XCGHMC) integrator.
@@ -635,8 +644,10 @@ class XCGHMCIntegrator(XCMixin, GHMCIntegrator):
         self.addComputeSum("ke", "0.5*m*v*v")
         self.addComputeGlobal("Eold", "s * (ke + energy) + (1 - s) * Eold")
         self.addComputeGlobal("Uold", "energy")  # Not strictly necessary, used for debugging
-        self.addComputePerDof("xold", "s * x + (1 - s) * xold")
-        self.addComputePerDof("vold", "s * v + (1 - s) * vold")
+        #self.addComputePerDof("xold", "s * x + (1 - s) * xold")
+        #self.addComputePerDof("vold", "s * v + (1 - s) * vold")
+        self.addComputePerDof("xold", "select(s, x, xold)")  # Requires OMM Build on May 6, 2015        
+        self.addComputePerDof("vold", "select(s, v, vold)")  # Requires OMM Build on May 6, 2015        
         
         self.addComputeGlobal("mu1", "mu1 * (1 - s)")  # XCHMC Fig. 3 O1
         self.addComputeGlobal("uni", "(1 - s) * uni + uniform * s")  # XCHMC paper version, only draw uniform once
@@ -656,8 +667,10 @@ class XCGHMCIntegrator(XCMixin, GHMCIntegrator):
 
         self.addComputeGlobal("flip", "(1 - a) * l")  # Flip is True ONLY on rejection at last cycle
         
-        self.addComputePerDof("x", "x * (1 - flip) + xold * flip")
-        self.addComputePerDof("v", "v * (1 - flip) - vold * flip")  # Conserve velocities except on flips.
+        #self.addComputePerDof("x", "x * (1 - flip) + xold * flip")
+        #self.addComputePerDof("v", "v * (1 - flip) - vold * flip")  # Conserve velocities except on flips.
+        self.addComputePerDof("x", "select(flip, xold, x)")  # Requires OMM Build on May 6, 2015        
+        self.addComputePerDof("v", "select(flip, -vold, v)")  # Requires OMM Build on May 6, 2015
 
         self.addComputeGlobal("kold", "k")  # Store the previous value of k for debugging purposes
         self.addComputeGlobal("k", "(k + 1) * (1 - flip) * (1 - a)")  # Increment by one ONLY if not flipping momenta or accepting, otherwise set to zero        
