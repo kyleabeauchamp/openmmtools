@@ -7,6 +7,16 @@ import simtk.unit as u
 import simtk.openmm as mm
 from .constants import kB
 
+def check_groups(groups):
+    
+    if groups is None or len(groups) == 0:
+        print("No force groups specified, using [(0, 1)]!")
+        groups = [(0, 1)]
+        # raise ValueError("No force groups specified")
+    
+    groups = sorted(groups, key=lambda x: x[1])
+    return groups
+
 
 def guess_force_groups(system, nonbonded=1, fft=1, others=0, multipole=1):
     """Set NB short-range to 1 and long-range to 1, which is usually OK.
@@ -252,6 +262,7 @@ class HMCIntegrator(HMCBase):
         self.addComputeGlobal("Enew", "ke + energy")
         self.addComputeGlobal("accept", "step(exp(-(Enew-Eold)/kT) - uniform)")
         self.addComputePerDof("x", "x*accept + xold*(1-accept)")
+        #self.addComputePerDof("x", "select(accept, x, xold)")
 
 
 class GHMCIntegrator(HMCBase):
@@ -761,11 +772,8 @@ class HMCRESPAIntegrator(RESPAMixIn, HMCIntegrator):
         """
 
         mm.CustomIntegrator.__init__(self, timestep)
-
-        if len(groups) == 0:
-            raise ValueError("No force groups specified")
         
-        self.groups = sorted(groups, key=lambda x: x[1])
+        self.groups = check_groups(groups)
         self.steps_per_hmc = steps_per_hmc
 
         self.timestep = timestep
@@ -836,10 +844,7 @@ class GHMCRESPAIntegrator(RESPAMixIn, GHMCIntegrator):
 
         mm.CustomIntegrator.__init__(self, timestep)
 
-        if len(groups) == 0:
-            raise ValueError("No force groups specified")
-        
-        self.groups = sorted(groups, key=lambda x: x[1])
+        self.groups = check_groups(groups)
         self.steps_per_hmc = steps_per_hmc
 
         self.collision_rate = collision_rate
@@ -857,10 +862,7 @@ class XCGHMCRESPAIntegrator(RESPAMixIn, XCGHMCIntegrator):
         """
         mm.CustomIntegrator.__init__(self, timestep)
 
-        if len(groups) == 0:
-            raise ValueError("No force groups specified")
-        
-        self.groups = sorted(groups, key=lambda x: x[1])
+        self.groups = check_groups(groups)
 
         self.take_debug_steps = take_debug_steps
         self.temperature = temperature
@@ -879,11 +881,8 @@ class XCHMCRESPAIntegrator(RESPAMixIn, XCHMCIntegrator):
         """
         """
         mm.CustomIntegrator.__init__(self, timestep)
-
-        if len(groups) == 0:
-            raise ValueError("No force groups specified")
         
-        self.groups = sorted(groups, key=lambda x: x[1])
+        self.groups = check_groups(groups)
 
         self.take_debug_steps = take_debug_steps
         self.temperature = temperature
