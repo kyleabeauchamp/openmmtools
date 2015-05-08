@@ -434,7 +434,7 @@ class TestSystem(object):
         return self.__class__.__name__
 
 class CustomPotentialTestSystem(TestSystem):
-    def __init__(self, energy_expressions=("x^2 + y^2 + z^2",), mass=1.0 * unit.amu, n_particles=1, **kwargs):
+    def __init__(self, energy_expressions=("x^2 + y^2 + z^2",), mass=1.0 * unit.amu, n_particles=500, **kwargs):
         TestSystem.__init__(self, **kwargs)
 
         system = openmm.System()
