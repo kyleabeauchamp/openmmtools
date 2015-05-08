@@ -434,7 +434,7 @@ class TestSystem(object):
         return self.__class__.__name__
 
 class CustomPotentialTestSystem(TestSystem):
-    def __init__(self, energy_expression="x^2 + y^2 + z^2", mass=1.0 * unit.amu, n_particles=1, **kwargs):
+    def __init__(self, energy_expressions=("x^2 + y^2 + z^2",), mass=1.0 * unit.amu, n_particles=1, **kwargs):
         TestSystem.__init__(self, **kwargs)
 
         system = openmm.System()
@@ -444,13 +444,14 @@ class CustomPotentialTestSystem(TestSystem):
 
         positions = unit.Quantity(np.zeros([n_particles, 3], np.float32), unit.angstroms)
 
-        force = openmm.CustomExternalForce(energy_expression)
+        forces = [openmm.CustomExternalForce(energy_expression) for energy_expression in energy_expressions]
         
-        for n in range(n_particles):
-            parameters = ()
-            force.addParticle(n, parameters)
-        
-        system.addForce(force)
+        for i, force in enumerate(forces):
+            for n in range(n_particles):
+                parameters = ()
+                force.addParticle(n, parameters)
+            force.setForceGroup(i)
+            system.addForce(force)
 
         # Create topology.
         topology = app.Topology()
