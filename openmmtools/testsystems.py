@@ -433,6 +433,41 @@ class TestSystem(object):
         """The name of the test system."""
         return self.__class__.__name__
 
+class CustomPotentialTestSystem(TestSystem):
+    def __init__(self, energy_expression="x^2 + y^2 + z^2", mass=1.0 * unit.amu, n_particles=1, **kwargs):
+        TestSystem.__init__(self, **kwargs)
+
+        system = openmm.System()
+
+        for n in range(n_particles):
+            system.addParticle(mass)
+
+        positions = unit.Quantity(np.zeros([n_particles, 3], np.float32), unit.angstroms)
+
+        force = openmm.CustomExternalForce(energy_expression)
+        
+        for n in range(n_particles):
+            parameters = ()
+            force.addParticle(n, parameters)
+        
+        system.addForce(force)
+
+        # Create topology.
+        topology = app.Topology()
+        element = app.Element.getBySymbol('Ar')
+        chain = topology.addChain()
+        for particle in range(n_particles):
+            residue = topology.addResidue('Ar', chain)
+            topology.addAtom('Ar', element, residue)
+        self.topology = topology
+
+        self.system, self.positions = system, positions
+        self.n_particles = n_particles
+        self.mass = mass
+        self.ndof = 3 * n_particles   
+        
+
+
 #=============================================================================================
 # 3D harmonic oscillator
 #=============================================================================================
@@ -1471,7 +1506,7 @@ class LennardJonesFluid(TestSystem):
     epsilon : simtk.unit.Quantity, optional, default=0.238 * unit.kilocalories_per_mole
         Lennard-Jones well depth; default is appropriate for argon
     cutoff : simtk.unit.Quantity, optional, default=None
-        Cutoff for nonbonded interactions.  If None, defaults to 2.5 * sigma
+        Cutoff for nonbonded interactions.  If None, defaults to 3.0 * sigma
     switch : simtk.unit.Quantity, optional, default=1.0 * unit.kilojoules_per_mole/unit.nanometer**2
         if specified, the switching function will be turned on at this distance (default: None)
     switch_width : simtk.unit.Quantity with units compatible with angstroms, optional, default=0.2*unit.angstroms
