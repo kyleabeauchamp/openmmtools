@@ -1419,7 +1419,7 @@ class LennardJonesCluster(TestSystem):
     >>> cluster = LennardJonesCluster(nx=10, ny=10, nz=10)
     >>> system, positions = cluster.system, cluster.positions
     """
-    def __init__(self, nx=3, ny=3, nz=3, K=1.0 * unit.kilojoules_per_mole/unit.nanometer**2, cutoff=None, **kwargs):
+    def __init__(self, nx=3, ny=3, nz=3, K=1.0 * unit.kilojoules_per_mole/unit.nanometer**2, cutoff=None, switch_width=None, **kwargs):
 
         TestSystem.__init__(self, **kwargs)
 
@@ -1446,7 +1446,11 @@ class LennardJonesCluster(TestSystem):
         else:
             nb.setNonbondedMethod(openmm.NonbondedForce.CutoffNonPeriodic)
             nb.setCutoffDistance(cutoff)
-            nb.setUseDispersionCorrection(False)            
+            nb.setUseDispersionCorrection(False)
+            force.setUseSwitchingFunction(False)
+            if switch_width is not None:
+                force.setUseSwitchingFunction(True)
+                force.setSwitchingDistance(cutoff - switch_width)                
             
         positions = unit.Quantity(np.zeros([natoms,3],np.float32), unit.angstrom)
 
