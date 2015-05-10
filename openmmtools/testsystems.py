@@ -1447,10 +1447,10 @@ class LennardJonesCluster(TestSystem):
             nb.setNonbondedMethod(openmm.NonbondedForce.CutoffNonPeriodic)
             nb.setCutoffDistance(cutoff)
             nb.setUseDispersionCorrection(False)
-            force.setUseSwitchingFunction(False)
+            nb.setUseSwitchingFunction(False)
             if switch_width is not None:
-                force.setUseSwitchingFunction(True)
-                force.setSwitchingDistance(cutoff - switch_width)                
+                nb.setUseSwitchingFunction(True)
+                nb.setSwitchingDistance(cutoff - switch_width)                
             
         positions = unit.Quantity(np.zeros([natoms,3],np.float32), unit.angstrom)
 
